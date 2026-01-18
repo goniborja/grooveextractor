@@ -1,0 +1,25 @@
+# GUI Framework
+PyQt6==6.6.1
+PyQt6-Qt6==6.6.1
+PyQt6-sip==13.6.0
+
+# Audio Processing - DSP
+librosa==0.10.1
+soundfile==0.12.1
+audioread==3.0.1
+
+# Advanced Onset Detection
+madmom==0.16.1
+
+# Scientific Computing
+numpy==1.26.3
+scipy==1.11.4
+
+# Data Manipulation
+pandas==2.1.4
+
+# Plotting (for waveform visualization)
+matplotlib==3.8.2
+
+# Additional utilities
+python-dateutil==2.8.2
