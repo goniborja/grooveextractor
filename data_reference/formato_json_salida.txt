@@ -1,0 +1,47 @@
+FORMATO JSON DE SALIDA - GROOVE EXTRACTOR
+==========================================
+
+El archivo JSON generado por Groove Extractor contendrá:
+
+{
+  "metadata": {
+    "audio_file": "nombre_archivo.wav",
+    "sample_rate": 44100,
+    "duration_seconds": 120.5,
+    "tempo_bpm": 120.0,
+    "time_signature": "4/4",
+    "analyzed_date": "2026-01-18T10:30:00",
+    "analyzer_version": "1.0.0"
+  },
+  "groove_data": [
+    {
+      "onset_time": 0.000,
+      "beat_position": 1.0,
+      "bar_number": 1,
+      "drum_type": "kick",
+      "velocity": 95,
+      "amplitude_db": -12.5,
+      "timing_deviation_ms": 0.0,
+      "velocity_variation": 0.0,
+      "onset_strength": 0.85
+    },
+    ...
+  ],
+  "humanization_stats": {
+    "avg_timing_deviation_ms": 1.5,
+    "std_timing_deviation_ms": 2.3,
+    "avg_velocity_variation": 0.15,
+    "swing_factor": 0.0
+  }
+}
+
+CAMPOS EXPLICADOS:
+- onset_time: Tiempo en segundos desde el inicio
+- beat_position: Posición métrica (1.0, 1.5, 2.0, etc.)
+- bar_number: Número de compás
+- drum_type: Tipo de instrumento detectado (kick, snare, hihat, etc.)
+- velocity: Velocidad MIDI estimada (0-127)
+- amplitude_db: Amplitud en dB
+- timing_deviation_ms: Desviación del grid en milisegundos
+- velocity_variation: Variación normalizada de dinámica (0.0-1.0)
+- onset_strength: Fuerza del onset detectado (0.0-1.0)
