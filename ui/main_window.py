@@ -3,7 +3,7 @@ MainWindow - Ventana principal de Groove Extractor con UI vintage.
 Usa widgets basados en imágenes PNG del kit Vintage Obsession.
 """
 
-import os
+from pathlib import Path
 from PyQt6.QtWidgets import (
     QMainWindow, QWidget, QVBoxLayout, QHBoxLayout, QLabel, QFileDialog
 )
@@ -22,11 +22,11 @@ from .widgets import (
     VintageScreen,
 )
 
-# Rutas base de assets
-ASSETS_BASE = "assets/ui/vintage_obsession"
-ASSETS_DIR = os.path.join(ASSETS_BASE, "Assets")
-ONESHOTS_DIR = os.path.join(ASSETS_DIR, "Animations/Oneshots")
-STRIPS_DIR = os.path.join(ASSETS_DIR, "Animations/Strips")
+# Rutas base de assets (usando pathlib para compatibilidad Windows/Linux)
+ASSETS_BASE = Path("assets") / "ui" / "vintage_obsession"
+ASSETS_DIR = ASSETS_BASE / "Assets"
+ONESHOTS_DIR = ASSETS_DIR / "Animations" / "Oneshots"
+STRIPS_DIR = ASSETS_DIR / "Animations" / "Strips"
 
 
 class AnalysisThread(QThread):
@@ -129,8 +129,8 @@ class MainWindow(QMainWindow):
 
     def _set_background(self):
         """Establece el fondo de la ventana."""
-        wallpaper_path = os.path.join(ASSETS_BASE, "Vintage_GUI_KIT_wallpaper_a.png")
-        if os.path.exists(wallpaper_path):
+        wallpaper_path = ASSETS_BASE / "Vintage_GUI_KIT_wallpaper_a.png"
+        if wallpaper_path.exists():
             palette = self.palette()
             pixmap = QPixmap(wallpaper_path)
             palette.setBrush(QPalette.ColorRole.Window, QBrush(pixmap))
@@ -144,8 +144,8 @@ class MainWindow(QMainWindow):
 
         # Pad importar
         self.pad_import = ImagePad(
-            os.path.join(ONESHOTS_DIR, "pad_off.png"),
-            os.path.join(ONESHOTS_DIR, "pad_on.png"),
+            str(ONESHOTS_DIR / "pad_off.png"),
+            str(ONESHOTS_DIR / "pad_on.png"),
             "KARGATU"
         )
         layout.addWidget(self.pad_import, alignment=Qt.AlignmentFlag.AlignCenter)
@@ -159,8 +159,8 @@ class MainWindow(QMainWindow):
         # Switch metadatos
         switch_layout1 = QHBoxLayout()
         self.switch_metadata = ImageSwitch(
-            os.path.join(ONESHOTS_DIR, "switch_hor_st1.png"),
-            os.path.join(ONESHOTS_DIR, "switch_hor_st2.png")
+            str(ONESHOTS_DIR / "switch_hor_st1.png"),
+            str(ONESHOTS_DIR / "switch_hor_st2.png")
         )
         switch_layout1.addWidget(self.switch_metadata)
         switch_layout1.addWidget(QLabel("METADATUAK"))
@@ -169,8 +169,8 @@ class MainWindow(QMainWindow):
         # Switch separar batería
         switch_layout2 = QHBoxLayout()
         self.switch_separate = ImageSwitch(
-            os.path.join(ONESHOTS_DIR, "switch_hor_st1.png"),
-            os.path.join(ONESHOTS_DIR, "switch_hor_st2.png")
+            str(ONESHOTS_DIR / "switch_hor_st1.png"),
+            str(ONESHOTS_DIR / "switch_hor_st2.png")
         )
         switch_layout2.addWidget(self.switch_separate)
         switch_layout2.addWidget(QLabel("BANATU BD/SN/HH"))
@@ -185,13 +185,13 @@ class MainWindow(QMainWindow):
         layout.setSpacing(15)
 
         # VU Meter
-        vu_folder = os.path.join(ONESHOTS_DIR, "VU_meter")
+        vu_folder = str(ONESHOTS_DIR / "VU_meter")
         self.vu_meter = AnimatedVUMeter(vu_folder, 256)
         layout.addWidget(self.vu_meter, alignment=Qt.AlignmentFlag.AlignCenter)
 
         # Screen de estado
         self.screen_status = VintageScreen(
-            os.path.join(ASSETS_DIR, "screen.png"),
+            str(ASSETS_DIR / "screen.png"),
             editable=False
         )
         self.screen_status.set_text("PREST")
@@ -204,7 +204,7 @@ class MainWindow(QMainWindow):
         # Slider Kick
         kick_layout = QVBoxLayout()
         self.slider_kick = FilmstripSlider(
-            os.path.join(STRIPS_DIR, "Ver_slider.png"),
+            str(STRIPS_DIR / "Ver_slider.png"),
             256, 'vertical'
         )
         kick_layout.addWidget(self.slider_kick, alignment=Qt.AlignmentFlag.AlignCenter)
@@ -214,7 +214,7 @@ class MainWindow(QMainWindow):
         # Slider Snare
         snare_layout = QVBoxLayout()
         self.slider_snare = FilmstripSlider(
-            os.path.join(STRIPS_DIR, "Ver_slider.png"),
+            str(STRIPS_DIR / "Ver_slider.png"),
             256, 'vertical'
         )
         snare_layout.addWidget(self.slider_snare, alignment=Qt.AlignmentFlag.AlignCenter)
@@ -224,7 +224,7 @@ class MainWindow(QMainWindow):
         # Slider HiHat
         hihat_layout = QVBoxLayout()
         self.slider_hihat = FilmstripSlider(
-            os.path.join(STRIPS_DIR, "Ver_slider.png"),
+            str(STRIPS_DIR / "Ver_slider.png"),
             256, 'vertical'
         )
         hihat_layout.addWidget(self.slider_hihat, alignment=Qt.AlignmentFlag.AlignCenter)
@@ -234,7 +234,7 @@ class MainWindow(QMainWindow):
         # LED
         led_layout = QVBoxLayout()
         self.led_analyzing = AnimatedLED(
-            os.path.join(STRIPS_DIR, "LED_meter.png"),
+            str(STRIPS_DIR / "LED_meter.png"),
             62
         )
         led_layout.addWidget(self.led_analyzing, alignment=Qt.AlignmentFlag.AlignCenter)
@@ -253,8 +253,8 @@ class MainWindow(QMainWindow):
 
         # Pad exportar
         self.pad_export = ImagePad(
-            os.path.join(ONESHOTS_DIR, "pad_off.png"),
-            os.path.join(ONESHOTS_DIR, "pad_on.png"),
+            str(ONESHOTS_DIR / "pad_off.png"),
+            str(ONESHOTS_DIR / "pad_on.png"),
             "ESPORTATU"
         )
         layout.addWidget(self.pad_export, alignment=Qt.AlignmentFlag.AlignCenter)
@@ -268,8 +268,8 @@ class MainWindow(QMainWindow):
         format_layout = QHBoxLayout()
         format_layout.addWidget(QLabel("MIDI"))
         self.switch_format = ImageSwitch(
-            os.path.join(ONESHOTS_DIR, "switch_hor_st1.png"),
-            os.path.join(ONESHOTS_DIR, "switch_hor_st2.png")
+            str(ONESHOTS_DIR / "switch_hor_st1.png"),
+            str(ONESHOTS_DIR / "switch_hor_st2.png")
         )
         format_layout.addWidget(self.switch_format)
         format_layout.addWidget(QLabel("WAV"))
@@ -277,21 +277,21 @@ class MainWindow(QMainWindow):
 
         # Botón abrir proyecto
         self.btn_open = ImageButton(
-            os.path.join(STRIPS_DIR, "but_big_rectangle.png"),
+            str(STRIPS_DIR / "but_big_rectangle.png"),
             6, "PROIEKTUA IREKI"
         )
         layout.addWidget(self.btn_open, alignment=Qt.AlignmentFlag.AlignCenter)
 
         # Botón guardar proyecto
         self.btn_save = ImageButton(
-            os.path.join(STRIPS_DIR, "but_big_rectangle.png"),
+            str(STRIPS_DIR / "but_big_rectangle.png"),
             6, "PROIEKTUA GORDE"
         )
         layout.addWidget(self.btn_save, alignment=Qt.AlignmentFlag.AlignCenter)
 
         # Slider reservado
         self.slider_reserved = FilmstripSlider(
-            os.path.join(STRIPS_DIR, "Ver_slider.png"),
+            str(STRIPS_DIR / "Ver_slider.png"),
             256, 'vertical'
         )
         layout.addWidget(self.slider_reserved, alignment=Qt.AlignmentFlag.AlignCenter)
@@ -307,7 +307,7 @@ class MainWindow(QMainWindow):
         # Knob de estilos
         knob_layout = QVBoxLayout()
         self.knob_style = FilmstripKnob(
-            os.path.join(STRIPS_DIR, "Knob_mid.png"),
+            str(STRIPS_DIR / "Knob_mid.png"),
             256, num_positions=6
         )
         self.knob_style.set_labels(self.STYLES)
@@ -320,7 +320,7 @@ class MainWindow(QMainWindow):
 
         # Screen estilo seleccionado
         self.screen_style = VintageScreen(
-            os.path.join(ASSETS_DIR, "screen.png"),
+            str(ASSETS_DIR / "screen.png"),
             editable=False
         )
         self.screen_style.set_text(self.STYLES[0])
@@ -329,7 +329,7 @@ class MainWindow(QMainWindow):
 
         # Screen nombre batería
         self.screen_drummer = VintageScreen(
-            os.path.join(ASSETS_DIR, "screen.png"),
+            str(ASSETS_DIR / "screen.png"),
             editable=True
         )
         self.screen_drummer.set_text("BATERIA")
@@ -337,7 +337,7 @@ class MainWindow(QMainWindow):
 
         # Screen BPM
         self.screen_bpm = VintageScreen(
-            os.path.join(ASSETS_DIR, "screen.png"),
+            str(ASSETS_DIR / "screen.png"),
             editable=True
         )
         self.screen_bpm.set_text("120")
@@ -353,7 +353,7 @@ class MainWindow(QMainWindow):
         layout = QVBoxLayout(zone)
 
         self.screen_progress = VintageScreen(
-            os.path.join(ASSETS_DIR, "screen.png"),
+            str(ASSETS_DIR / "screen.png"),
             editable=False
         )
         self.screen_progress.set_text("0%")
@@ -370,8 +370,8 @@ class MainWindow(QMainWindow):
 
         # Pad detectar BPM
         self.pad_bpm = ImagePad(
-            os.path.join(ONESHOTS_DIR, "pad_off.png"),
-            os.path.join(ONESHOTS_DIR, "pad_on.png"),
+            str(ONESHOTS_DIR / "pad_off.png"),
+            str(ONESHOTS_DIR / "pad_on.png"),
             "BPM ANTZEMAN"
         )
         layout.addWidget(self.pad_bpm, alignment=Qt.AlignmentFlag.AlignCenter)
@@ -383,7 +383,7 @@ class MainWindow(QMainWindow):
 
         # Slider horizontal para animación
         self.slider_bpm_detect = FilmstripSlider(
-            os.path.join(STRIPS_DIR, "Hor_slider.png"),
+            str(STRIPS_DIR / "Hor_slider.png"),
             256, 'horizontal'
         )
         layout.addWidget(self.slider_bpm_detect, alignment=Qt.AlignmentFlag.AlignCenter)
@@ -419,7 +419,7 @@ class MainWindow(QMainWindow):
         )
         if file_name:
             self.audio_file = file_name
-            self.screen_status.set_text(f"Cargado: {os.path.basename(file_name)}")
+            self.screen_status.set_text(f"Cargado: {Path(file_name).name}")
             self.import_song_clicked.emit()
 
     def _on_format_changed(self, is_wav: bool):

@@ -2,7 +2,7 @@
 AnimatedVUMeter - VU Meter con aguja animada.
 """
 
-import os
+from pathlib import Path
 from PyQt6.QtWidgets import QWidget
 from PyQt6.QtCore import QTimer, QRect
 from PyQt6.QtGui import QPainter, QPixmap
@@ -30,9 +30,10 @@ class AnimatedVUMeter(QWidget):
         self._frames = []
 
         # Cargar todos los frames
+        folder = Path(frames_folder)
         for i in range(num_frames):
-            frame_path = os.path.join(frames_folder, f"VU_meter_{i:04d}.png")
-            pixmap = QPixmap(frame_path)
+            frame_path = folder / f"VU_meter_{i:04d}.png"
+            pixmap = QPixmap(str(frame_path))
             if pixmap.isNull():
                 raise FileNotFoundError(f"No se pudo cargar: {frame_path}")
             self._frames.append(pixmap)
