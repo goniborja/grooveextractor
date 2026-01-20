@@ -132,7 +132,7 @@ class MainWindow(QMainWindow):
         wallpaper_path = ASSETS_BASE / "Vintage_GUI_KIT_wallpaper_a.png"
         if wallpaper_path.exists():
             palette = self.palette()
-            pixmap = QPixmap(wallpaper_path)
+            pixmap = QPixmap(str(wallpaper_path))
             palette.setBrush(QPalette.ColorRole.Window, QBrush(pixmap))
             self.setPalette(palette)
 
