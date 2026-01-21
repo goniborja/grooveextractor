@@ -21,6 +21,7 @@ from .separators import DrumSeparator, SeparatedStems
 class ExtractorConfig:
     """Configuracion del extractor."""
     use_stem_separation: bool = False  # Separar stems antes de analizar
+    separation_mode: str = "oldie"  # "oldie" (3.5-8.5kHz) o "newie" (4.5-10kHz)
     analyze_hihat_type: bool = True  # Clasificar hi-hats abierto/cerrado
     export_excel: bool = True  # Exportar automaticamente a Excel
     num_bars: Optional[int] = None  # Numero de compases a analizar (None=todos)
@@ -84,7 +85,9 @@ class GrooveExtractor:
         # 2. Separar stems si esta configurado
         separated_drums_path = None
         if self.config.use_stem_separation:
-            stems = self.separator.separate_array(y, sr)
+            # Usar modo OLDIE o NEWIE para separación
+            mode = self.config.separation_mode
+            stems = self.separator.separate_by_mode(y, sr, mode=mode)
             # Guardar batería separada como archivo WAV
             output_dir = audio_path.parent / "separated"
             saved_files = self.separator.save_stems(stems, str(output_dir), audio_path.stem)
