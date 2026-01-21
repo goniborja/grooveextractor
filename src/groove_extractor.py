@@ -1,4 +1,5 @@
 """Groove Extractor - Orquestador principal del pipeline de analisis."""
+import time
 import numpy as np
 import librosa
 from dataclasses import dataclass
@@ -7,7 +8,7 @@ from typing import Optional, List, Dict
 
 from .models import (
     GrooveData, InstrumentData, GridMapping, OnsetList,
-    JamaicanStyle, SwingAnalysis, HumanizationStats
+    JamaicanStyle, SwingAnalysis, HumanizationStats, HiHatType
 )
 from typing import Optional
 from .detectors import OnsetDetector
@@ -56,7 +57,14 @@ class GrooveExtractor:
         self.onset_detector = OnsetDetector()
         self.hihat_classifier = HiHatClassifier()
         self.swing_calculator = SwingCalculator()
-        self.exporter = ExcelExporter()
+
+        # ExcelExporter es opcional (requiere openpyxl)
+        try:
+            self.exporter = ExcelExporter()
+        except ImportError:
+            self.exporter = None
+            if self.config.export_excel:
+                print("[AVISO] openpyxl no instalado, exportación Excel deshabilitada")
 
         # Timing converter se inicializa despues de detectar BPM
         self.timing_converter = None
@@ -74,10 +82,14 @@ class GrooveExtractor:
         Returns:
             GrooveData con todos los datos extraidos
         """
+        start_time = time.time()
         audio_path = Path(audio_path)
 
         # 1. Cargar audio
+        print(f"[ANÁLISIS] Cargando audio: {audio_path.name}...")
         y, sr = librosa.load(str(audio_path), sr=22050)
+        duration_sec = len(y) / sr
+        print(f"[ANÁLISIS] Audio cargado: {duration_sec:.1f}s, {sr}Hz")
 
         # Actualizar sample rate en componentes
         self.onset_detector.sr = sr
@@ -87,10 +99,12 @@ class GrooveExtractor:
         # 2. Separar stems si esta configurado
         separated_drums_path = None
         if self.config.use_stem_separation:
+            print("[ANÁLISIS] Separando stems con DrumSep...")
             stems = self.separator.separate_array(y, sr)
             # Guardar batería separada como archivo WAV
             output_dir = audio_path.parent / "separated"
             saved_files = self.separator.save_stems(stems, str(output_dir), audio_path.stem)
+            print(f"[ANÁLISIS] Stems guardados: {list(saved_files.keys())}")
             # Combinar kick + snare + hihat como "drums"
             if stems.kick is not None and stems.snare is not None:
                 import soundfile as sf
@@ -100,14 +114,18 @@ class GrooveExtractor:
                 separated_drums_path = str(output_dir / f"{audio_path.stem}_drums.wav")
                 sf.write(separated_drums_path, drums_combined, stems.sr)
         else:
+            print("[ANÁLISIS] Usando audio completo (sin separación de stems)")
             # Sin separacion: usar audio completo para cada analisis
             stems = SeparatedStems(kick=y, snare=y, hihat=y, sr=sr)
 
         # 3. Detectar BPM y estilo (usando style_hint si se proporciono)
+        print("[ANÁLISIS] Detectando BPM y estilo...")
         bpm_result = self._analyze_bpm(y, stems, style_hint)
+        print(f"[ANÁLISIS] BPM detectado: {bpm_result.bpm_detected:.1f} → corregido: {bpm_result.bpm_corrected:.1f} ({bpm_result.style_suggested.value})")
 
         # 4. Inicializar timing converter con BPM detectado
         self.timing_converter = TimingConverter(bpm=bpm_result.bpm_corrected)
+        print(f"[ANÁLISIS] Convertido a ticks (480 PPQ, {self.timing_converter.ticks_per_bar} ticks/compás)")
 
         # 5. Crear GrooveData base
         groove = GrooveData(
@@ -120,6 +138,7 @@ class GrooveExtractor:
         )
 
         # 6. Procesar cada instrumento
+        print("[ANÁLISIS] Detectando onsets...")
         self._process_kick(groove, stems.kick if stems.kick is not None else y)
         self._process_snare(groove, stems.snare if stems.snare is not None else y)
         self._process_hihat(groove, stems.hihat if stems.hihat is not None else y)
@@ -128,12 +147,18 @@ class GrooveExtractor:
         if 'hihat' in groove.instruments:
             hihat_onsets = groove.instruments['hihat'].onsets
             groove.swing = self.swing_calculator.calculate_from_onsets(hihat_onsets)
+            if groove.swing:
+                print(f"[ANÁLISIS] Swing calculado: {groove.swing.swing_percentage:.1f}%")
 
         # 8. Exportar a Excel si esta configurado
-        if self.config.export_excel:
+        if self.config.export_excel and self.exporter is not None:
             if output_path is None:
                 output_path = str(audio_path.with_suffix('.xlsx'))
+            print(f"[ANÁLISIS] Exportando a Excel: {Path(output_path).name}")
             self.exporter.export(groove, output_path)
+
+        elapsed = time.time() - start_time
+        print(f"[ANÁLISIS] Completado en {elapsed:.1f}s")
 
         return groove
 
@@ -156,11 +181,13 @@ class GrooveExtractor:
     def _process_kick(self, groove: GrooveData, y: np.ndarray):
         """Procesa onsets de bombo."""
         onsets = self.onset_detector.detect_kick(y)
+        print(f"[ANÁLISIS] Onsets kick: {len(onsets)} detectados")
         self._add_instrument_data(groove, 'kick', onsets)
 
     def _process_snare(self, groove: GrooveData, y: np.ndarray):
         """Procesa onsets de caja."""
         onsets = self.onset_detector.detect_snare(y)
+        print(f"[ANÁLISIS] Onsets snare: {len(onsets)} detectados")
         self._add_instrument_data(groove, 'snare', onsets)
 
     def _process_hihat(self, groove: GrooveData, y: np.ndarray):
@@ -168,13 +195,20 @@ class GrooveExtractor:
         onsets = self.onset_detector.detect_hihat(y)
 
         # Clasificar hi-hats si esta configurado
+        open_count = 0
+        closed_count = 0
         if self.config.analyze_hihat_type and len(onsets) > 0:
             classifications = self.hihat_classifier.classify_onsets(y, onsets)
 
-            # Actualizar instrumento en cada onset
+            # Actualizar instrumento en cada onset y contar tipos
             for onset, classification in zip(onsets.onsets, classifications):
                 onset.instrument = f"hihat_{classification.hit_type.value}"
+                if classification.hit_type == HiHatType.OPEN:
+                    open_count += 1
+                elif classification.hit_type == HiHatType.CLOSED:
+                    closed_count += 1
 
+        print(f"[ANÁLISIS] Onsets hihat: {len(onsets)} detectados ({open_count} abiertos, {closed_count} cerrados)")
         self._add_instrument_data(groove, 'hihat', onsets)
 
     def _add_instrument_data(self, groove: GrooveData, name: str, onsets: OnsetList):
