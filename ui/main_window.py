@@ -5,7 +5,7 @@ Usa widgets basados en imágenes PNG del kit Vintage Obsession.
 
 from pathlib import Path
 from PyQt6.QtWidgets import (
-    QMainWindow, QWidget, QVBoxLayout, QHBoxLayout, QLabel, QFileDialog
+    QMainWindow, QWidget, QVBoxLayout, QHBoxLayout, QLabel, QFileDialog, QMessageBox
 )
 from PyQt6.QtCore import Qt, QThread, pyqtSignal
 from PyQt6.QtGui import QPalette, QBrush
@@ -105,7 +105,34 @@ class AnalysisThread(QThread):
             self.status.emit("Emaitzak prestatzen...")
             self.progress.emit(95)
 
-            results = self.extractor.extract_to_dict(self.audio_file)
+            # Convertir groove_data a dict directamente (sin re-extraer)
+            groove = self.groove_data
+            results = {
+                'song_name': groove.song_name,
+                'bpm': groove.bpm,
+                'style': groove.style.value,
+                'is_vintage': groove.is_vintage,
+                'tempo_drift': groove.tempo_drift,
+                'separated_drums_path': groove.separated_drums_path,
+                'swing': {
+                    'percentage': groove.swing.swing_percentage if groove.swing else None,
+                    'ratio': groove.swing.swing_ratio if groove.swing else None,
+                    'description': groove.swing.description if groove.swing else None,
+                } if groove.swing else None,
+                'instruments': {
+                    name: {
+                        'num_onsets': len(inst.onsets),
+                        'num_bars': len(inst.grids),
+                        'humanization': {
+                            'rushing_percent': inst.humanization.rushing_percent,
+                            'dragging_percent': inst.humanization.dragging_percent,
+                            'on_grid_percent': inst.humanization.on_grid_percent,
+                            'avg_deviation_ms': inst.humanization.avg_deviation_ms,
+                        } if inst.humanization else None
+                    }
+                    for name, inst in groove.instruments.items()
+                }
+            }
 
             self.progress.emit(100)
             self.status.emit("Amaituta!")
@@ -511,9 +538,9 @@ class MainWindow(QMainWindow):
         # Zona C
         self.pad_export.clicked.connect(self._on_export_clicked)
         self.switch_format.toggled.connect(self._on_format_changed)
-        # IREKI/GORDE sin función por ahora
-        self.btn_open.clicked.connect(lambda: self.screen_status.set_text("Funtzio hau etorkizunean"))
-        self.btn_save.clicked.connect(lambda: self.screen_status.set_text("Funtzio hau etorkizunean"))
+        # IREKI/GORDE - mostrar diálogo informativo
+        self.btn_open.clicked.connect(self._on_ireki_clicked)
+        self.btn_save.clicked.connect(self._on_gorde_clicked)
 
         # Zona D
         self.knob_style.value_changed.connect(self._on_style_changed)
@@ -631,6 +658,30 @@ class MainWindow(QMainWindow):
             except Exception as e:
                 self.screen_status.set_text(f"Errorea!")
                 self.screen_log.set_text(f"Errorea: {str(e)[:20]}")
+
+    def _on_ireki_clicked(self):
+        """Muestra diálogo informativo para IREKI (abrir proyecto)."""
+        QMessageBox.information(
+            self,
+            "IREKI - Proiektua ireki",
+            "Funtzio hau etorkizunean egongo da.\n\n"
+            "Proiektu bat irekitzeko aukera izango duzu\n"
+            "aurretik gordetako konfigurazioarekin.",
+            QMessageBox.StandardButton.Ok
+        )
+        self.screen_status.set_text("IREKI: etorkizunean")
+
+    def _on_gorde_clicked(self):
+        """Muestra diálogo informativo para GORDE (guardar proyecto)."""
+        QMessageBox.information(
+            self,
+            "GORDE - Proiektua gorde",
+            "Funtzio hau etorkizunean egongo da.\n\n"
+            "Proiektua karpeta batean gordetzeko aukera\n"
+            "izango duzu, analisiaren emaitzekin.",
+            QMessageBox.StandardButton.Ok
+        )
+        self.screen_status.set_text("GORDE: etorkizunean")
 
     # ==================== MÉTODOS PÚBLICOS ====================
     def set_vu_level(self, level: float):

@@ -82,8 +82,20 @@ class GrooveExtractor:
         self.bpm_analyzer.sr = sr
 
         # 2. Separar stems si esta configurado
+        separated_drums_path = None
         if self.config.use_stem_separation:
             stems = self.separator.separate_array(y, sr)
+            # Guardar batería separada como archivo WAV
+            output_dir = audio_path.parent / "separated"
+            saved_files = self.separator.save_stems(stems, str(output_dir), audio_path.stem)
+            # Combinar kick + snare + hihat como "drums"
+            if stems.kick is not None and stems.snare is not None:
+                import soundfile as sf
+                drums_combined = stems.kick + stems.snare
+                if stems.hihat is not None:
+                    drums_combined = drums_combined + stems.hihat
+                separated_drums_path = str(output_dir / f"{audio_path.stem}_drums.wav")
+                sf.write(separated_drums_path, drums_combined, stems.sr)
         else:
             # Sin separacion: usar audio completo para cada analisis
             stems = SeparatedStems(kick=y, snare=y, hihat=y, sr=sr)
@@ -100,7 +112,8 @@ class GrooveExtractor:
             bpm=bpm_result.bpm_corrected,
             style=bpm_result.style_suggested,
             is_vintage=bpm_result.is_vintage,
-            tempo_drift=bpm_result.tempo_drift
+            tempo_drift=bpm_result.tempo_drift,
+            separated_drums_path=separated_drums_path
         )
 
         # 6. Procesar cada instrumento
@@ -219,6 +232,7 @@ class GrooveExtractor:
             'style': groove.style.value,
             'is_vintage': groove.is_vintage,
             'tempo_drift': groove.tempo_drift,
+            'separated_drums_path': groove.separated_drums_path,
             'swing': {
                 'percentage': groove.swing.swing_percentage if groove.swing else None,
                 'ratio': groove.swing.swing_ratio if groove.swing else None,

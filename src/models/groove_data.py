@@ -43,6 +43,7 @@ class GrooveData:
     instruments: Dict[str, InstrumentData] = field(default_factory=dict)
     is_vintage: bool = False
     tempo_drift: float = 0.0  # Porcentaje de drift
+    separated_drums_path: Optional[str] = None  # Ruta al archivo de batería separada
 
     def add_instrument(self, instrument: InstrumentData):
         """Anade datos de un instrumento."""
