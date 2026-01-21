@@ -10,7 +10,7 @@ from PyQt6.QtWidgets import (
 from PyQt6.QtCore import Qt, QThread, pyqtSignal
 from PyQt6.QtGui import QPalette, QBrush
 
-from src import GrooveExtractor, ExtractorConfig
+from src import GrooveExtractor, ExtractorConfig, detect_bpm_only
 from .widgets.image_loader import load_pixmap
 from .widgets import (
     ImagePad,
@@ -149,6 +149,25 @@ class AnalysisThread(QThread):
         return self.separated_drums_path
 
 
+class BPMDetectionThread(QThread):
+    """Thread ligero para detección rápida de BPM sin separación de stems."""
+
+    finished = pyqtSignal(float, str, float)  # bpm, style, confidence
+    error = pyqtSignal(str)
+
+    def __init__(self, audio_file: str, style_hint: str = None):
+        super().__init__()
+        self.audio_file = audio_file
+        self.style_hint = style_hint
+
+    def run(self):
+        try:
+            result = detect_bpm_only(self.audio_file, style_hint=self.style_hint)
+            self.finished.emit(result.bpm, result.style.value, result.confidence)
+        except Exception as e:
+            self.error.emit(str(e))
+
+
 class MainWindow(QMainWindow):
     """Ventana principal de Groove Extractor con interfaz vintage."""
 
@@ -172,6 +191,7 @@ class MainWindow(QMainWindow):
         super().__init__()
         self.audio_file = None
         self.analysis_thread = None
+        self.bpm_thread = None  # Thread para detección rápida de BPM
         self._last_results = None
         self._separated_drums_path = None
         self._init_ui()
@@ -637,15 +657,40 @@ class MainWindow(QMainWindow):
             pass
 
     def _on_detect_bpm_clicked(self):
+        """Detecta BPM rápidamente sin separación de stems."""
         if not self.audio_file:
             self.screen_status.set_text("Kargatu audioa!")
             return
-        if self._last_results:
-            bpm = self._last_results.get('bpm', 120)
-            style = self._last_results.get('style', 'ska')
-            self._on_bpm_detected(float(bpm), style)
-        else:
-            self._start_analysis()
+
+        # Si ya hay un thread de BPM corriendo, no iniciar otro
+        if self.bpm_thread and self.bpm_thread.isRunning():
+            self.screen_status.set_text("BPM detektatzen...")
+            return
+
+        # Obtener style_hint del knob de estilo actual
+        style_index = self.knob_style.get_value()
+        style_hints = ["ska", "rocksteady", "early_reggae", "roots", "one_drop", "dub"]
+        style_hint = style_hints[style_index] if style_index < len(style_hints) else None
+
+        self.screen_status.set_text("BPM detektatzen...")
+        self.screen_log.set_text("Analizatzen audioa...")
+
+        # Iniciar thread de detección rápida
+        self.bpm_thread = BPMDetectionThread(self.audio_file, style_hint=style_hint)
+        self.bpm_thread.finished.connect(self._on_bpm_detection_finished)
+        self.bpm_thread.error.connect(self._on_bpm_detection_error)
+        self.bpm_thread.start()
+
+    def _on_bpm_detection_finished(self, bpm: float, style: str, confidence: float):
+        """Handler cuando termina la detección rápida de BPM."""
+        self._on_bpm_detected(bpm, style)
+        conf_text = "altua" if confidence > 0.8 else "ertaina" if confidence > 0.5 else "baxua"
+        self.screen_log.set_text(f"BPM: {int(bpm)} ({conf_text})")
+
+    def _on_bpm_detection_error(self, error_msg: str):
+        """Handler para errores en detección de BPM."""
+        self.screen_status.set_text("Errorea!")
+        self.screen_log.set_text(f"BPM errorea: {error_msg[:20]}")
 
     def _on_export_clicked(self):
         """Exporta la batería separada como WAV o MIDI."""
