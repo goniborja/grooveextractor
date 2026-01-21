@@ -161,14 +161,18 @@ class MainWindow(QMainWindow):
 
     def _set_background(self):
         """Establece el fondo de la ventana."""
-        wallpaper_path = ASSETS_BASE / "Vintage_GUI_KIT_wallpaper_a.png"
-        if wallpaper_path.exists():
+        # Usar back_a.png como fondo (no los wallpapers demo que tienen texto)
+        bg_path = ASSETS_DIR / "back_a.png"
+        if bg_path.exists():
             palette = self.palette()
-            pixmap = load_pixmap(str(wallpaper_path))
+            pixmap = load_pixmap(str(bg_path))
             # Escalar al tamaño de la ventana
             scaled = pixmap.scaled(1200, 800, Qt.AspectRatioMode.KeepAspectRatioByExpanding)
             palette.setBrush(QPalette.ColorRole.Window, QBrush(scaled))
             self.setPalette(palette)
+        else:
+            # Fallback: fondo sólido oscuro
+            self.setStyleSheet("background-color: #1a1a1a;")
 
     def _create_label(self, text: str) -> QLabel:
         """Crea un label con estilo consistente."""
