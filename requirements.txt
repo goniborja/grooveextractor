@@ -21,5 +21,8 @@ pandas==2.1.4
 # Plotting (for waveform visualization)
 matplotlib==3.8.2
 
+# Image Processing (for APNG support)
+Pillow==10.2.0
+
 # Additional utilities
 python-dateutil==2.8.2
