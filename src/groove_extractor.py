@@ -47,11 +47,12 @@ class GrooveExtractor:
         # Exporta automaticamente a audio_groove.xlsx
     """
 
-    def __init__(self, config: Optional[ExtractorConfig] = None):
+    def __init__(self, config: Optional[ExtractorConfig] = None, progress_callback=None):
         self.config = config or ExtractorConfig()
+        self._progress_callback = progress_callback
 
         # Inicializar componentes
-        self.separator = DrumSeparator()
+        self.separator = DrumSeparator(progress_callback=progress_callback)
         self.bpm_analyzer = JamaicanBPMAnalyzer()
         self.onset_detector = OnsetDetector()
         self.hihat_classifier = HiHatClassifier()
@@ -60,6 +61,11 @@ class GrooveExtractor:
 
         # Timing converter se inicializa despues de detectar BPM
         self.timing_converter = None
+
+    def set_progress_callback(self, callback):
+        """Establece el callback para reportar progreso."""
+        self._progress_callback = callback
+        self.separator.set_progress_callback(callback)
 
     def extract(self, audio_path: str, output_path: Optional[str] = None) -> GrooveData:
         """
