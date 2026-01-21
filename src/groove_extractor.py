@@ -273,3 +273,57 @@ def extract_groove(audio_path: str, output_path: Optional[str] = None,
     config = ExtractorConfig(use_stem_separation=use_separation)
     extractor = GrooveExtractor(config)
     return extractor.extract(audio_path, output_path)
+
+
+@dataclass
+class BPMResult:
+    """Resultado de deteccion rapida de BPM."""
+    bpm: float
+    bpm_raw: float  # BPM sin corregir
+    style: JamaicanStyle
+    confidence: float
+    is_half_time: bool  # True si se corrigio de doble velocidad
+
+
+def detect_bpm_only(audio_path: str, style_hint: Optional[str] = None) -> BPMResult:
+    """
+    Detecta BPM de forma rapida sin separacion de stems.
+
+    Esta funcion es ligera y rapida, ideal para preview antes del
+    analisis completo. Usa JamaicanBPMAnalyzer directamente.
+
+    Args:
+        audio_path: Ruta al archivo de audio
+        style_hint: Pista de estilo para correccion de BPM
+                   Opciones: "ska", "rocksteady", "early_reggae",
+                            "roots", "one_drop", "steppers", "dub"
+
+    Returns:
+        BPMResult con BPM detectado, estilo sugerido y confianza
+
+    Ejemplo:
+        >>> result = detect_bpm_only("song.wav", style_hint="one_drop")
+        >>> print(f"BPM: {result.bpm}, Estilo: {result.style.value}")
+    """
+    # Cargar audio
+    y, sr = librosa.load(str(audio_path), sr=22050)
+
+    # Crear analizador
+    analyzer = JamaicanBPMAnalyzer(sr=sr)
+
+    # Analizar con o sin hint de estilo
+    if style_hint:
+        bpm_data = analyzer.analyze(y, style_hint=style_hint)
+    else:
+        bpm_data = analyzer.analyze(y)
+
+    # Determinar si hubo correccion half-time
+    is_half_time = bpm_data.bpm_corrected < bpm_data.bpm_detected * 0.75
+
+    return BPMResult(
+        bpm=bpm_data.bpm_corrected,
+        bpm_raw=bpm_data.bpm_detected,
+        style=bpm_data.style_suggested,
+        confidence=bpm_data.confidence,
+        is_half_time=is_half_time
+    )

@@ -21,7 +21,10 @@ Uso rapido:
     groove = extract_groove("audio.wav")
 """
 
-from .groove_extractor import GrooveExtractor, ExtractorConfig, extract_groove
+from .groove_extractor import (
+    GrooveExtractor, ExtractorConfig, extract_groove,
+    detect_bpm_only, BPMResult
+)
 from .models import (
     OnsetData, OnsetList,
     HiHatType, HiHatFeatures, HiHatClassification,
@@ -36,6 +39,7 @@ __version__ = "2.0.0"
 __all__ = [
     # Main
     'GrooveExtractor', 'ExtractorConfig', 'extract_groove',
+    'detect_bpm_only', 'BPMResult',
     # Models
     'OnsetData', 'OnsetList',
     'HiHatType', 'HiHatFeatures', 'HiHatClassification',
