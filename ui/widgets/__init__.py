@@ -3,6 +3,7 @@ Widgets custom basados en imágenes PNG del kit Vintage Obsession.
 Todos los widgets usan QPainter para dibujar, sin CSS.
 """
 
+from .image_loader import load_pixmap
 from .image_pad import ImagePad
 from .image_switch import ImageSwitch
 from .image_button import ImageButton

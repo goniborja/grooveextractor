@@ -6,6 +6,8 @@ from PyQt6.QtWidgets import QWidget, QLineEdit
 from PyQt6.QtCore import pyqtSignal, Qt, QRect
 from PyQt6.QtGui import QPainter, QPixmap, QFont, QColor, QFontMetrics
 
+from .image_loader import load_pixmap
+
 
 class VintageScreen(QWidget):
     """
@@ -31,10 +33,8 @@ class VintageScreen(QWidget):
         self._font = QFont("Courier New", 14, QFont.Weight.Bold)
         self._padding = 15
 
-        # Cargar imagen de fondo
-        self._bg_image = QPixmap(bg_image)
-        if self._bg_image.isNull():
-            raise FileNotFoundError(f"No se pudo cargar: {bg_image}")
+        # Cargar imagen de fondo (usando carga robusta para PNGs no estándar)
+        self._bg_image = load_pixmap(bg_image)
 
         # Fijar tamaño al tamaño de la imagen
         self.setFixedSize(self._bg_image.size())

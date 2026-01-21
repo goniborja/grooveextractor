@@ -6,6 +6,8 @@ from PyQt6.QtWidgets import QWidget
 from PyQt6.QtCore import pyqtSignal, QTimer
 from PyQt6.QtGui import QPainter, QPixmap
 
+from .image_loader import load_pixmap
+
 
 class ImagePad(QWidget):
     """
@@ -29,15 +31,9 @@ class ImagePad(QWidget):
         self.label_text = label_text
         self._is_pressed = False
 
-        # Cargar imágenes
-        self._img_off = QPixmap(off_image)
-        self._img_on = QPixmap(on_image)
-
-        # Verificar que las imágenes se cargaron
-        if self._img_off.isNull():
-            raise FileNotFoundError(f"No se pudo cargar: {off_image}")
-        if self._img_on.isNull():
-            raise FileNotFoundError(f"No se pudo cargar: {on_image}")
+        # Cargar imágenes (usando carga robusta para PNGs no estándar)
+        self._img_off = load_pixmap(off_image)
+        self._img_on = load_pixmap(on_image)
 
         # Fijar tamaño al tamaño de la imagen
         self.setFixedSize(self._img_off.size())

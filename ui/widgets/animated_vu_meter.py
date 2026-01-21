@@ -7,6 +7,8 @@ from PyQt6.QtWidgets import QWidget
 from PyQt6.QtCore import QTimer, QRect
 from PyQt6.QtGui import QPainter, QPixmap
 
+from .image_loader import load_pixmap
+
 
 class AnimatedVUMeter(QWidget):
     """
@@ -29,13 +31,11 @@ class AnimatedVUMeter(QWidget):
         self._display_level = 0.0  # Nivel mostrado (con suavizado)
         self._frames = []
 
-        # Cargar todos los frames
+        # Cargar todos los frames (usando carga robusta para PNGs no estándar)
         folder = Path(frames_folder)
         for i in range(num_frames):
             frame_path = folder / f"VU_meter_{i:04d}.png"
-            pixmap = QPixmap(str(frame_path))
-            if pixmap.isNull():
-                raise FileNotFoundError(f"No se pudo cargar: {frame_path}")
+            pixmap = load_pixmap(str(frame_path))
             self._frames.append(pixmap)
 
         # Fijar tamaño al tamaño del primer frame

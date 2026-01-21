@@ -6,6 +6,8 @@ from PyQt6.QtWidgets import QWidget
 from PyQt6.QtCore import pyqtSignal
 from PyQt6.QtGui import QPainter, QPixmap
 
+from .image_loader import load_pixmap
+
 
 class ImageSwitch(QWidget):
     """
@@ -27,15 +29,9 @@ class ImageSwitch(QWidget):
         super().__init__(parent)
         self._is_on = False
 
-        # Cargar imágenes
-        self._img_off = QPixmap(image_off)
-        self._img_on = QPixmap(image_on)
-
-        # Verificar que las imágenes se cargaron
-        if self._img_off.isNull():
-            raise FileNotFoundError(f"No se pudo cargar: {image_off}")
-        if self._img_on.isNull():
-            raise FileNotFoundError(f"No se pudo cargar: {image_on}")
+        # Cargar imágenes (usando carga robusta para PNGs no estándar)
+        self._img_off = load_pixmap(image_off)
+        self._img_on = load_pixmap(image_on)
 
         # Fijar tamaño al tamaño de la imagen
         self.setFixedSize(self._img_off.size())

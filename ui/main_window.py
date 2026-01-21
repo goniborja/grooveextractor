@@ -11,6 +11,7 @@ from PyQt6.QtCore import Qt, QThread, pyqtSignal
 from PyQt6.QtGui import QPixmap, QPalette, QBrush
 
 from groove_analyzer import GrooveAnalyzer
+from .widgets.image_loader import load_pixmap
 from .widgets import (
     ImagePad,
     ImageSwitch,
@@ -132,7 +133,7 @@ class MainWindow(QMainWindow):
         wallpaper_path = ASSETS_BASE / "Vintage_GUI_KIT_wallpaper_a.png"
         if wallpaper_path.exists():
             palette = self.palette()
-            pixmap = QPixmap(str(wallpaper_path))
+            pixmap = load_pixmap(str(wallpaper_path))
             palette.setBrush(QPalette.ColorRole.Window, QBrush(pixmap))
             self.setPalette(palette)
 

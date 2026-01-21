@@ -6,6 +6,8 @@ from PyQt6.QtWidgets import QWidget
 from PyQt6.QtCore import pyqtSignal, Qt, QRect, QTimer, QPropertyAnimation, QEasingCurve
 from PyQt6.QtGui import QPainter, QPixmap
 
+from .image_loader import load_pixmap
+
 
 class FilmstripSlider(QWidget):
     """
@@ -32,10 +34,8 @@ class FilmstripSlider(QWidget):
         self._value = 0.0  # Valor entre 0.0 y 1.0
         self._dragging = False
 
-        # Cargar filmstrip
-        self._filmstrip = QPixmap(strip_path)
-        if self._filmstrip.isNull():
-            raise FileNotFoundError(f"No se pudo cargar: {strip_path}")
+        # Cargar filmstrip (usando carga robusta para PNGs no estándar)
+        self._filmstrip = load_pixmap(strip_path)
 
         # Calcular tamaño de cada frame
         self._frame_width = self._filmstrip.width()

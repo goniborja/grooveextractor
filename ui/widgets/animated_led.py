@@ -6,6 +6,8 @@ from PyQt6.QtWidgets import QWidget
 from PyQt6.QtCore import QTimer, QRect
 from PyQt6.QtGui import QPainter, QPixmap
 
+from .image_loader import load_pixmap
+
 
 class AnimatedLED(QWidget):
     """
@@ -27,10 +29,8 @@ class AnimatedLED(QWidget):
         self._is_on = False
         self._pulsing = False
 
-        # Cargar filmstrip
-        self._filmstrip = QPixmap(strip_path)
-        if self._filmstrip.isNull():
-            raise FileNotFoundError(f"No se pudo cargar: {strip_path}")
+        # Cargar filmstrip (usando carga robusta para PNGs no estándar)
+        self._filmstrip = load_pixmap(strip_path)
 
         # Calcular tamaño de cada frame
         self._frame_width = self._filmstrip.width()

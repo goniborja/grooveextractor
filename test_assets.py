@@ -87,9 +87,71 @@ def check_vu_meter_frames():
     return errors
 
 
-def check_str_conversion():
-    """Verifica que main_window.py use str() en todas las llamadas a QPixmap."""
-    print("\n=== VERIFICANDO USO DE str() EN QPIXMAP ===")
+def check_image_loader_module():
+    """Verifica que el módulo image_loader.py existe."""
+    print("\n=== VERIFICANDO MÓDULO IMAGE_LOADER ===")
+
+    loader_path = Path("ui") / "widgets" / "image_loader.py"
+    if loader_path.exists():
+        print(f"  OK: {loader_path} existe")
+        return []
+    else:
+        print(f"  ERROR: {loader_path} NO EXISTE")
+        return [loader_path]
+
+
+def check_widgets_use_load_pixmap():
+    """Verifica que los widgets usen load_pixmap en lugar de QPixmap directo."""
+    print("\n=== VERIFICANDO USO DE load_pixmap EN WIDGETS ===")
+
+    widgets_dir = Path("ui") / "widgets"
+    widget_files = [
+        "filmstrip_knob.py",
+        "filmstrip_slider.py",
+        "animated_led.py",
+        "animated_vu_meter.py",
+        "image_button.py",
+        "image_pad.py",
+        "image_switch.py",
+        "vintage_screen.py",
+    ]
+
+    errors = []
+    for widget_file in widget_files:
+        file_path = widgets_dir / widget_file
+        if not file_path.exists():
+            errors.append(f"{widget_file}: archivo no existe")
+            continue
+
+        content = file_path.read_text()
+
+        # Verificar que importa load_pixmap
+        if "from .image_loader import load_pixmap" not in content:
+            errors.append(f"{widget_file}: no importa load_pixmap")
+
+        # Verificar que no usa QPixmap( directamente para cargar archivos
+        # (excepto en casos legítimos donde se usa internamente)
+        lines = content.split('\n')
+        for i, line in enumerate(lines, 1):
+            if 'QPixmap(' in line and ('path' in line.lower() or '.png' in line.lower()):
+                if 'load_pixmap' not in line and '# Cargar' not in lines[i-2] if i > 1 else True:
+                    # Solo reportar si parece una carga de archivo, no uso interno
+                    if any(x in line for x in ['strip_path', 'frame_path', 'image', 'bg_image']):
+                        errors.append(f"{widget_file}:{i}: QPixmap directo detectado")
+
+    if not errors:
+        print("  OK: Todos los widgets usan load_pixmap")
+    else:
+        print(f"  ADVERTENCIA: {len(errors)} posibles problemas:")
+        for e in errors:
+            print(f"    - {e}")
+
+    return errors
+
+
+def check_main_window():
+    """Verifica que main_window.py use load_pixmap."""
+    print("\n=== VERIFICANDO main_window.py ===")
 
     main_window_path = Path("ui") / "main_window.py"
     if not main_window_path.exists():
@@ -99,19 +161,20 @@ def check_str_conversion():
     content = main_window_path.read_text()
     errors = []
 
-    # Buscar patrones problemáticos
-    lines = content.split('\n')
-    for i, line in enumerate(lines, 1):
-        # Buscar QPixmap sin str()
-        if 'QPixmap(' in line and '_DIR /' in line and 'str(' not in line:
-            errors.append(f"Línea {i}: QPixmap sin str() - {line.strip()}")
+    # Verificar que importa load_pixmap
+    if "from .widgets.image_loader import load_pixmap" not in content:
+        errors.append("main_window.py: no importa load_pixmap")
+
+    # Verificar que usa load_pixmap para wallpaper
+    if "load_pixmap(str(wallpaper_path))" in content:
+        print("  OK: Wallpaper usa load_pixmap")
+    elif "QPixmap(str(wallpaper_path))" in content:
+        errors.append("main_window.py: wallpaper usa QPixmap directo")
+    else:
+        print("  INFO: Wallpaper no encontrado (verificar manualmente)")
 
     if not errors:
-        print("  OK: Todas las llamadas QPixmap usan str()")
-    else:
-        print(f"  ERROR: {len(errors)} llamadas QPixmap sin str():")
-        for e in errors:
-            print(f"    - {e}")
+        print("  OK: main_window.py correctamente configurado")
 
     return errors
 
@@ -130,9 +193,14 @@ def main():
     # Verificar VU meter frames
     all_errors.extend(check_vu_meter_frames())
 
-    # Verificar uso de str() en QPixmap
-    str_errors = check_str_conversion()
-    all_errors.extend(str_errors)
+    # Verificar módulo image_loader
+    all_errors.extend(check_image_loader_module())
+
+    # Verificar widgets usan load_pixmap
+    all_errors.extend(check_widgets_use_load_pixmap())
+
+    # Verificar main_window.py
+    all_errors.extend(check_main_window())
 
     # Resumen
     print("\n" + "=" * 60)
