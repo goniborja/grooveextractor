@@ -17,21 +17,22 @@ class ImageSwitch(QWidget):
 
     toggled = pyqtSignal(bool)
 
-    def __init__(self, image_off: str, image_on: str, parent=None):
+    def __init__(self, image_off: str, image_on: str, scale: float = 1.0, parent=None):
         """
         Constructor del ImageSwitch.
 
         Args:
             image_off: Ruta a la imagen del estado apagado (st1).
             image_on: Ruta a la imagen del estado encendido (st2).
+            scale: Factor de escala.
             parent: Widget padre.
         """
         super().__init__(parent)
         self._is_on = False
 
         # Cargar imágenes (usando carga robusta para PNGs no estándar)
-        self._img_off = load_pixmap(image_off)
-        self._img_on = load_pixmap(image_on)
+        self._img_off = load_pixmap(image_off, scale)
+        self._img_on = load_pixmap(image_on, scale)
 
         # Fijar tamaño al tamaño de la imagen
         self.setFixedSize(self._img_off.size())

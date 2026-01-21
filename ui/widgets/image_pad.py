@@ -17,7 +17,8 @@ class ImagePad(QWidget):
 
     clicked = pyqtSignal()
 
-    def __init__(self, off_image: str, on_image: str, label_text: str = "", parent=None):
+    def __init__(self, off_image: str, on_image: str, label_text: str = "",
+                 scale: float = 1.0, parent=None):
         """
         Constructor del ImagePad.
 
@@ -25,6 +26,7 @@ class ImagePad(QWidget):
             off_image: Ruta a la imagen del estado apagado.
             on_image: Ruta a la imagen del estado encendido.
             label_text: Texto opcional (no se usa visualmente, solo para identificación).
+            scale: Factor de escala (0.5 = mitad de tamaño).
             parent: Widget padre.
         """
         super().__init__(parent)
@@ -32,8 +34,8 @@ class ImagePad(QWidget):
         self._is_pressed = False
 
         # Cargar imágenes (usando carga robusta para PNGs no estándar)
-        self._img_off = load_pixmap(off_image)
-        self._img_on = load_pixmap(on_image)
+        self._img_off = load_pixmap(off_image, scale)
+        self._img_on = load_pixmap(on_image, scale)
 
         # Fijar tamaño al tamaño de la imagen
         self.setFixedSize(self._img_off.size())

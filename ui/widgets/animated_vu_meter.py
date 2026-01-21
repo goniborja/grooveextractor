@@ -16,13 +16,15 @@ class AnimatedVUMeter(QWidget):
     Carga frames desde una carpeta de imágenes individuales.
     """
 
-    def __init__(self, frames_folder: str, num_frames: int = 256, parent=None):
+    def __init__(self, frames_folder: str, num_frames: int = 256,
+                 scale: float = 1.0, parent=None):
         """
         Constructor del AnimatedVUMeter.
 
         Args:
             frames_folder: Carpeta con los frames (VU_meter_0000.png, etc.)
             num_frames: Número de frames disponibles.
+            scale: Factor de escala.
             parent: Widget padre.
         """
         super().__init__(parent)
@@ -35,7 +37,7 @@ class AnimatedVUMeter(QWidget):
         folder = Path(frames_folder)
         for i in range(num_frames):
             frame_path = folder / f"VU_meter_{i:04d}.png"
-            pixmap = load_pixmap(str(frame_path))
+            pixmap = load_pixmap(str(frame_path), scale)
             self._frames.append(pixmap)
 
         # Fijar tamaño al tamaño del primer frame

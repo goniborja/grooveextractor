@@ -22,7 +22,8 @@ class ImageButton(QWidget):
     STATE_HOVER = 1
     STATE_PRESSED = 2
 
-    def __init__(self, strip_path: str, num_frames: int = 6, label_text: str = "", parent=None):
+    def __init__(self, strip_path: str, num_frames: int = 6, label_text: str = "",
+                 scale: float = 1.0, parent=None):
         """
         Constructor del ImageButton.
 
@@ -30,6 +31,7 @@ class ImageButton(QWidget):
             strip_path: Ruta al filmstrip (imagen vertical con frames apilados).
             num_frames: Número de frames en el filmstrip.
             label_text: Texto a mostrar sobre el botón.
+            scale: Factor de escala.
             parent: Widget padre.
         """
         super().__init__(parent)
@@ -39,7 +41,7 @@ class ImageButton(QWidget):
         self._enabled = True
 
         # Cargar filmstrip (usando carga robusta para PNGs no estándar)
-        self._filmstrip = load_pixmap(strip_path)
+        self._filmstrip = load_pixmap(strip_path, scale)
 
         # Calcular tamaño de cada frame
         self._frame_width = self._filmstrip.width()

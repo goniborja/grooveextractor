@@ -29,6 +29,17 @@ ASSETS_DIR = ASSETS_BASE / "Assets"
 ONESHOTS_DIR = ASSETS_DIR / "Animations" / "Oneshots"
 STRIPS_DIR = ASSETS_DIR / "Animations" / "Strips"
 
+# Escalas para que los widgets quepan en 1200x800
+SCALE_PAD = 0.4          # Pads: 208 -> 83px
+SCALE_SWITCH = 0.7       # Switches: 102x44 -> 71x31
+SCALE_SLIDER_V = 0.3     # Sliders verticales: 104x444 -> 31x133
+SCALE_SLIDER_H = 0.35    # Sliders horizontales: 444x104 -> 155x36
+SCALE_KNOB = 0.6         # Knob small: 120 -> 72px
+SCALE_LED = 0.12         # LED: 96x413 -> 12x50
+SCALE_BUTTON = 0.7       # Buttons small: 144x62 -> 100x43
+SCALE_SCREEN = 0.35      # Screen: 510x110 -> 178x38
+SCALE_VU = 0.55          # VU meter: 325x184 -> 179x101
+
 
 class AnalysisThread(QThread):
     """Thread para análisis de audio sin bloquear la UI."""
@@ -101,12 +112,12 @@ class MainWindow(QMainWindow):
 
         # Layout principal de 3 columnas
         main_layout = QHBoxLayout(central_widget)
-        main_layout.setSpacing(20)
-        main_layout.setContentsMargins(30, 30, 30, 30)
+        main_layout.setSpacing(15)
+        main_layout.setContentsMargins(20, 20, 20, 20)
 
         # Columna izquierda (A, D, G)
         left_column = QVBoxLayout()
-        left_column.setSpacing(20)
+        left_column.setSpacing(15)
         left_column.addWidget(self._create_zone_a())
         left_column.addWidget(self._create_zone_d())
         left_column.addWidget(self._create_zone_g())
@@ -114,19 +125,19 @@ class MainWindow(QMainWindow):
 
         # Columna central (B, E)
         center_column = QVBoxLayout()
-        center_column.setSpacing(20)
+        center_column.setSpacing(15)
         center_column.addWidget(self._create_zone_b(), stretch=3)
         center_column.addWidget(self._create_zone_e(), stretch=1)
 
         # Columna derecha (C)
         right_column = QVBoxLayout()
-        right_column.setSpacing(20)
+        right_column.setSpacing(15)
         right_column.addWidget(self._create_zone_c())
         right_column.addStretch()
 
-        main_layout.addLayout(left_column)
+        main_layout.addLayout(left_column, stretch=1)
         main_layout.addLayout(center_column, stretch=2)
-        main_layout.addLayout(right_column)
+        main_layout.addLayout(right_column, stretch=1)
 
     def _set_background(self):
         """Establece el fondo de la ventana."""
@@ -134,47 +145,59 @@ class MainWindow(QMainWindow):
         if wallpaper_path.exists():
             palette = self.palette()
             pixmap = load_pixmap(str(wallpaper_path))
-            palette.setBrush(QPalette.ColorRole.Window, QBrush(pixmap))
+            # Escalar al tamaño de la ventana
+            scaled = pixmap.scaled(1200, 800, Qt.AspectRatioMode.KeepAspectRatioByExpanding)
+            palette.setBrush(QPalette.ColorRole.Window, QBrush(scaled))
             self.setPalette(palette)
+
+    def _create_label(self, text: str) -> QLabel:
+        """Crea un label con estilo consistente."""
+        label = QLabel(text)
+        label.setStyleSheet("color: #AAAAAA; font-size: 9px; font-weight: bold;")
+        label.setAlignment(Qt.AlignmentFlag.AlignCenter)
+        return label
 
     def _create_zone_a(self) -> QWidget:
         """Crea Zona A: Importar + switches."""
         zone = QWidget()
         layout = QVBoxLayout(zone)
-        layout.setSpacing(10)
+        layout.setSpacing(8)
+        layout.setContentsMargins(5, 5, 5, 5)
 
         # Pad importar
         self.pad_import = ImagePad(
             str(ONESHOTS_DIR / "pad_off.png"),
             str(ONESHOTS_DIR / "pad_on.png"),
-            "KARGATU"
+            "KARGATU",
+            scale=SCALE_PAD
         )
         layout.addWidget(self.pad_import, alignment=Qt.AlignmentFlag.AlignCenter)
-
-        # Label
-        label = QLabel("KARGATU")
-        label.setStyleSheet("color: #AAAAAA; font-size: 10px;")
-        label.setAlignment(Qt.AlignmentFlag.AlignCenter)
-        layout.addWidget(label)
+        layout.addWidget(self._create_label("KARGATU"))
 
         # Switch metadatos
         switch_layout1 = QHBoxLayout()
+        switch_layout1.setSpacing(5)
         self.switch_metadata = ImageSwitch(
             str(ONESHOTS_DIR / "switch_hor_st1.png"),
-            str(ONESHOTS_DIR / "switch_hor_st2.png")
+            str(ONESHOTS_DIR / "switch_hor_st2.png"),
+            scale=SCALE_SWITCH
         )
         switch_layout1.addWidget(self.switch_metadata)
-        switch_layout1.addWidget(QLabel("METADATUAK"))
+        switch_layout1.addWidget(self._create_label("METADATUAK"))
+        switch_layout1.addStretch()
         layout.addLayout(switch_layout1)
 
         # Switch separar batería
         switch_layout2 = QHBoxLayout()
+        switch_layout2.setSpacing(5)
         self.switch_separate = ImageSwitch(
             str(ONESHOTS_DIR / "switch_hor_st1.png"),
-            str(ONESHOTS_DIR / "switch_hor_st2.png")
+            str(ONESHOTS_DIR / "switch_hor_st2.png"),
+            scale=SCALE_SWITCH
         )
         switch_layout2.addWidget(self.switch_separate)
-        switch_layout2.addWidget(QLabel("BANATU BD/SN/HH"))
+        switch_layout2.addWidget(self._create_label("BANATU"))
+        switch_layout2.addStretch()
         layout.addLayout(switch_layout2)
 
         return zone
@@ -183,63 +206,69 @@ class MainWindow(QMainWindow):
         """Crea Zona B: VU meter, sliders, LED, status."""
         zone = QWidget()
         layout = QVBoxLayout(zone)
-        layout.setSpacing(15)
+        layout.setSpacing(10)
+        layout.setContentsMargins(5, 5, 5, 5)
 
         # VU Meter
         vu_folder = str(ONESHOTS_DIR / "VU_meter")
-        self.vu_meter = AnimatedVUMeter(vu_folder, 256)
+        self.vu_meter = AnimatedVUMeter(vu_folder, 256, scale=SCALE_VU)
         layout.addWidget(self.vu_meter, alignment=Qt.AlignmentFlag.AlignCenter)
 
         # Screen de estado
         self.screen_status = VintageScreen(
             str(ASSETS_DIR / "screen.png"),
-            editable=False
+            editable=False,
+            scale=SCALE_SCREEN
         )
         self.screen_status.set_text("PREST")
         layout.addWidget(self.screen_status, alignment=Qt.AlignmentFlag.AlignCenter)
 
-        # Sliders y LED
+        # Sliders y LED en fila
         controls_layout = QHBoxLayout()
-        controls_layout.setSpacing(20)
+        controls_layout.setSpacing(15)
 
         # Slider Kick
         kick_layout = QVBoxLayout()
+        kick_layout.setSpacing(3)
         self.slider_kick = FilmstripSlider(
             str(STRIPS_DIR / "Ver_slider.png"),
-            256, 'vertical'
+            256, 'vertical', scale=SCALE_SLIDER_V
         )
         kick_layout.addWidget(self.slider_kick, alignment=Qt.AlignmentFlag.AlignCenter)
-        kick_layout.addWidget(QLabel("KICK"))
+        kick_layout.addWidget(self._create_label("KICK"))
         controls_layout.addLayout(kick_layout)
 
         # Slider Snare
         snare_layout = QVBoxLayout()
+        snare_layout.setSpacing(3)
         self.slider_snare = FilmstripSlider(
             str(STRIPS_DIR / "Ver_slider.png"),
-            256, 'vertical'
+            256, 'vertical', scale=SCALE_SLIDER_V
         )
         snare_layout.addWidget(self.slider_snare, alignment=Qt.AlignmentFlag.AlignCenter)
-        snare_layout.addWidget(QLabel("SNARE"))
+        snare_layout.addWidget(self._create_label("SNARE"))
         controls_layout.addLayout(snare_layout)
 
         # Slider HiHat
         hihat_layout = QVBoxLayout()
+        hihat_layout.setSpacing(3)
         self.slider_hihat = FilmstripSlider(
             str(STRIPS_DIR / "Ver_slider.png"),
-            256, 'vertical'
+            256, 'vertical', scale=SCALE_SLIDER_V
         )
         hihat_layout.addWidget(self.slider_hihat, alignment=Qt.AlignmentFlag.AlignCenter)
-        hihat_layout.addWidget(QLabel("HI-HAT"))
+        hihat_layout.addWidget(self._create_label("HI-HAT"))
         controls_layout.addLayout(hihat_layout)
 
         # LED
         led_layout = QVBoxLayout()
+        led_layout.setSpacing(3)
         self.led_analyzing = AnimatedLED(
             str(STRIPS_DIR / "LED_meter.png"),
-            62
+            62, scale=SCALE_LED
         )
         led_layout.addWidget(self.led_analyzing, alignment=Qt.AlignmentFlag.AlignCenter)
-        led_layout.addWidget(QLabel("AKTIBO"))
+        led_layout.addWidget(self._create_label("AKTIBO"))
         controls_layout.addLayout(led_layout)
 
         layout.addLayout(controls_layout)
@@ -250,50 +279,52 @@ class MainWindow(QMainWindow):
         """Crea Zona C: Exportar, formato, botones proyecto, slider."""
         zone = QWidget()
         layout = QVBoxLayout(zone)
-        layout.setSpacing(15)
+        layout.setSpacing(8)
+        layout.setContentsMargins(5, 5, 5, 5)
 
         # Pad exportar
         self.pad_export = ImagePad(
             str(ONESHOTS_DIR / "pad_off.png"),
             str(ONESHOTS_DIR / "pad_on.png"),
-            "ESPORTATU"
+            "ESPORTATU",
+            scale=SCALE_PAD
         )
         layout.addWidget(self.pad_export, alignment=Qt.AlignmentFlag.AlignCenter)
-
-        label_export = QLabel("ESPORTATU")
-        label_export.setStyleSheet("color: #AAAAAA; font-size: 10px;")
-        label_export.setAlignment(Qt.AlignmentFlag.AlignCenter)
-        layout.addWidget(label_export)
+        layout.addWidget(self._create_label("ESPORTATU"))
 
         # Switch MIDI/WAV
         format_layout = QHBoxLayout()
-        format_layout.addWidget(QLabel("MIDI"))
+        format_layout.setSpacing(5)
+        format_layout.addWidget(self._create_label("MIDI"))
         self.switch_format = ImageSwitch(
             str(ONESHOTS_DIR / "switch_hor_st1.png"),
-            str(ONESHOTS_DIR / "switch_hor_st2.png")
+            str(ONESHOTS_DIR / "switch_hor_st2.png"),
+            scale=SCALE_SWITCH
         )
         format_layout.addWidget(self.switch_format)
-        format_layout.addWidget(QLabel("WAV"))
+        format_layout.addWidget(self._create_label("WAV"))
         layout.addLayout(format_layout)
 
-        # Botón abrir proyecto
+        # Botón abrir proyecto (usando but_small_rectangle)
         self.btn_open = ImageButton(
-            str(STRIPS_DIR / "but_big_rectangle.png"),
-            6, "PROIEKTUA IREKI"
+            str(STRIPS_DIR / "but_small_rectangle.png"),
+            6, "IREKI",
+            scale=SCALE_BUTTON
         )
         layout.addWidget(self.btn_open, alignment=Qt.AlignmentFlag.AlignCenter)
 
         # Botón guardar proyecto
         self.btn_save = ImageButton(
-            str(STRIPS_DIR / "but_big_rectangle.png"),
-            6, "PROIEKTUA GORDE"
+            str(STRIPS_DIR / "but_small_rectangle.png"),
+            6, "GORDE",
+            scale=SCALE_BUTTON
         )
         layout.addWidget(self.btn_save, alignment=Qt.AlignmentFlag.AlignCenter)
 
         # Slider reservado
         self.slider_reserved = FilmstripSlider(
             str(STRIPS_DIR / "Ver_slider.png"),
-            256, 'vertical'
+            256, 'vertical', scale=SCALE_SLIDER_V
         )
         layout.addWidget(self.slider_reserved, alignment=Qt.AlignmentFlag.AlignCenter)
 
@@ -303,26 +334,30 @@ class MainWindow(QMainWindow):
         """Crea Zona D: Knob estilos, screens."""
         zone = QWidget()
         layout = QHBoxLayout(zone)
-        layout.setSpacing(15)
+        layout.setSpacing(10)
+        layout.setContentsMargins(5, 5, 5, 5)
 
-        # Knob de estilos
+        # Knob de estilos (usando Knob_small)
         knob_layout = QVBoxLayout()
+        knob_layout.setSpacing(3)
         self.knob_style = FilmstripKnob(
-            str(STRIPS_DIR / "Knob_mid.png"),
-            256, num_positions=6
+            str(STRIPS_DIR / "Knob_small.png"),
+            128, num_positions=6, scale=SCALE_KNOB
         )
         self.knob_style.set_labels(self.STYLES)
         knob_layout.addWidget(self.knob_style, alignment=Qt.AlignmentFlag.AlignCenter)
-        knob_layout.addWidget(QLabel("ESTILOA"))
+        knob_layout.addWidget(self._create_label("ESTILOA"))
         layout.addLayout(knob_layout)
 
         # Screens
         screens_layout = QVBoxLayout()
+        screens_layout.setSpacing(5)
 
         # Screen estilo seleccionado
         self.screen_style = VintageScreen(
             str(ASSETS_DIR / "screen.png"),
-            editable=False
+            editable=False,
+            scale=SCALE_SCREEN
         )
         self.screen_style.set_text(self.STYLES[0])
         self.screen_style.set_amber_color()
@@ -331,7 +366,8 @@ class MainWindow(QMainWindow):
         # Screen nombre batería
         self.screen_drummer = VintageScreen(
             str(ASSETS_DIR / "screen.png"),
-            editable=True
+            editable=True,
+            scale=SCALE_SCREEN
         )
         self.screen_drummer.set_text("BATERIA")
         screens_layout.addWidget(self.screen_drummer)
@@ -339,7 +375,8 @@ class MainWindow(QMainWindow):
         # Screen BPM
         self.screen_bpm = VintageScreen(
             str(ASSETS_DIR / "screen.png"),
-            editable=True
+            editable=True,
+            scale=SCALE_SCREEN
         )
         self.screen_bpm.set_text("120")
         screens_layout.addWidget(self.screen_bpm)
@@ -352,13 +389,15 @@ class MainWindow(QMainWindow):
         """Crea Zona E: Screen de porcentaje."""
         zone = QWidget()
         layout = QVBoxLayout(zone)
+        layout.setContentsMargins(5, 5, 5, 5)
 
         self.screen_progress = VintageScreen(
             str(ASSETS_DIR / "screen.png"),
-            editable=False
+            editable=False,
+            scale=0.5  # Un poco más grande para el porcentaje
         )
         self.screen_progress.set_text("0%")
-        self.screen_progress.set_font_size(24)
+        self.screen_progress.set_font_size(16)
         layout.addWidget(self.screen_progress, alignment=Qt.AlignmentFlag.AlignCenter)
 
         return zone
@@ -367,25 +406,23 @@ class MainWindow(QMainWindow):
         """Crea Zona G: Detectar BPM + slider."""
         zone = QWidget()
         layout = QVBoxLayout(zone)
-        layout.setSpacing(10)
+        layout.setSpacing(8)
+        layout.setContentsMargins(5, 5, 5, 5)
 
         # Pad detectar BPM
         self.pad_bpm = ImagePad(
             str(ONESHOTS_DIR / "pad_off.png"),
             str(ONESHOTS_DIR / "pad_on.png"),
-            "BPM ANTZEMAN"
+            "BPM ANTZEMAN",
+            scale=SCALE_PAD
         )
         layout.addWidget(self.pad_bpm, alignment=Qt.AlignmentFlag.AlignCenter)
-
-        label_bpm = QLabel("BPM ANTZEMAN")
-        label_bpm.setStyleSheet("color: #AAAAAA; font-size: 10px;")
-        label_bpm.setAlignment(Qt.AlignmentFlag.AlignCenter)
-        layout.addWidget(label_bpm)
+        layout.addWidget(self._create_label("BPM ANTZEMAN"))
 
         # Slider horizontal para animación
         self.slider_bpm_detect = FilmstripSlider(
             str(STRIPS_DIR / "Hor_slider.png"),
-            256, 'horizontal'
+            256, 'horizontal', scale=SCALE_SLIDER_H
         )
         layout.addWidget(self.slider_bpm_detect, alignment=Qt.AlignmentFlag.AlignCenter)
 
@@ -420,7 +457,7 @@ class MainWindow(QMainWindow):
         )
         if file_name:
             self.audio_file = file_name
-            self.screen_status.set_text(f"Cargado: {Path(file_name).name}")
+            self.screen_status.set_text(f"Cargado: {Path(file_name).name[:20]}")
             self.import_song_clicked.emit()
 
     def _on_format_changed(self, is_wav: bool):
@@ -448,7 +485,7 @@ class MainWindow(QMainWindow):
 
     def set_status_message(self, message: str):
         """Establece el mensaje de estado."""
-        self.screen_status.set_text(message)
+        self.screen_status.set_text(message[:25])  # Limitar longitud
 
     def set_progress(self, percent: int):
         """Establece el porcentaje de progreso."""

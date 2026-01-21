@@ -14,13 +14,15 @@ class AnimatedLED(QWidget):
     LED animado que usa un filmstrip para mostrar diferentes niveles de brillo.
     """
 
-    def __init__(self, strip_path: str, num_frames: int = 62, parent=None):
+    def __init__(self, strip_path: str, num_frames: int = 62,
+                 scale: float = 1.0, parent=None):
         """
         Constructor del AnimatedLED.
 
         Args:
             strip_path: Ruta al filmstrip del LED.
             num_frames: Número de frames en el filmstrip.
+            scale: Factor de escala.
             parent: Widget padre.
         """
         super().__init__(parent)
@@ -30,7 +32,7 @@ class AnimatedLED(QWidget):
         self._pulsing = False
 
         # Cargar filmstrip (usando carga robusta para PNGs no estándar)
-        self._filmstrip = load_pixmap(strip_path)
+        self._filmstrip = load_pixmap(strip_path, scale)
 
         # Calcular tamaño de cada frame
         self._frame_width = self._filmstrip.width()

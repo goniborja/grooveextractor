@@ -19,7 +19,7 @@ class FilmstripKnob(QWidget):
     value_changed_float = pyqtSignal(float)  # Para continuo
 
     def __init__(self, strip_path: str, num_frames: int = 256,
-                 num_positions: int = None, parent=None):
+                 num_positions: int = None, scale: float = 1.0, parent=None):
         """
         Constructor del FilmstripKnob.
 
@@ -27,6 +27,7 @@ class FilmstripKnob(QWidget):
             strip_path: Ruta al filmstrip.
             num_frames: Número de frames en el filmstrip.
             num_positions: Si se especifica, el knob tiene paradas discretas.
+            scale: Factor de escala.
             parent: Widget padre.
         """
         super().__init__(parent)
@@ -39,7 +40,7 @@ class FilmstripKnob(QWidget):
         self._last_y = 0
 
         # Cargar filmstrip (usando carga robusta para PNGs no estándar)
-        self._filmstrip = load_pixmap(strip_path)
+        self._filmstrip = load_pixmap(strip_path, scale)
 
         # Calcular tamaño de cada frame
         self._frame_width = self._filmstrip.width()

@@ -10,10 +10,11 @@ from io import BytesIO
 from pathlib import Path
 
 from PIL import Image
+from PyQt6.QtCore import Qt
 from PyQt6.QtGui import QPixmap, QImage
 
 
-def load_pixmap(path: str) -> QPixmap:
+def load_pixmap(path: str, scale: float = 1.0) -> QPixmap:
     """
     Carga un PNG/APNG usando Pillow y lo convierte a QPixmap.
 
@@ -22,9 +23,10 @@ def load_pixmap(path: str) -> QPixmap:
 
     Args:
         path: Ruta al archivo PNG.
+        scale: Factor de escala (0.5 = mitad, 1.0 = original).
 
     Returns:
-        QPixmap cargado.
+        QPixmap cargado (escalado si scale != 1.0).
 
     Raises:
         FileNotFoundError: Si el archivo no existe o no se puede cargar.
@@ -41,6 +43,12 @@ def load_pixmap(path: str) -> QPixmap:
         # Convertir a RGBA si es necesario
         if img.mode != 'RGBA':
             img = img.convert('RGBA')
+
+        # Escalar con Pillow si es necesario (mejor calidad)
+        if scale != 1.0:
+            new_width = int(img.width * scale)
+            new_height = int(img.height * scale)
+            img = img.resize((new_width, new_height), Image.Resampling.LANCZOS)
 
         # Convertir a bytes PNG estándar
         buffer = BytesIO()

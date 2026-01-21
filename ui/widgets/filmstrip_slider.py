@@ -18,7 +18,7 @@ class FilmstripSlider(QWidget):
     value_changed = pyqtSignal(float)
 
     def __init__(self, strip_path: str, num_frames: int = 256,
-                 orientation: str = 'vertical', parent=None):
+                 orientation: str = 'vertical', scale: float = 1.0, parent=None):
         """
         Constructor del FilmstripSlider.
 
@@ -26,6 +26,7 @@ class FilmstripSlider(QWidget):
             strip_path: Ruta al filmstrip.
             num_frames: Número de frames en el filmstrip.
             orientation: 'vertical' u 'horizontal'.
+            scale: Factor de escala.
             parent: Widget padre.
         """
         super().__init__(parent)
@@ -35,7 +36,7 @@ class FilmstripSlider(QWidget):
         self._dragging = False
 
         # Cargar filmstrip (usando carga robusta para PNGs no estándar)
-        self._filmstrip = load_pixmap(strip_path)
+        self._filmstrip = load_pixmap(strip_path, scale)
 
         # Calcular tamaño de cada frame
         self._frame_width = self._filmstrip.width()

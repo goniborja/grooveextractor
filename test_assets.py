@@ -33,9 +33,9 @@ REQUIRED_ASSETS = {
     # Filmstrips (Strips)
     STRIPS_DIR / "Ver_slider.png": "FilmstripSlider vertical",
     STRIPS_DIR / "Hor_slider.png": "FilmstripSlider horizontal",
-    STRIPS_DIR / "Knob_mid.png": "FilmstripKnob",
+    STRIPS_DIR / "Knob_small.png": "FilmstripKnob (small)",
     STRIPS_DIR / "LED_meter.png": "AnimatedLED",
-    STRIPS_DIR / "but_big_rectangle.png": "ImageButton",
+    STRIPS_DIR / "but_small_rectangle.png": "ImageButton (small)",
 }
 
 # VU Meter frames (256 frames individuales)

@@ -17,24 +17,29 @@ class VintageScreen(QWidget):
 
     text_changed = pyqtSignal(str)
 
-    def __init__(self, bg_image: str, editable: bool = False, parent=None):
+    def __init__(self, bg_image: str, editable: bool = False,
+                 scale: float = 1.0, parent=None):
         """
         Constructor del VintageScreen.
 
         Args:
             bg_image: Ruta a la imagen de fondo del display.
             editable: Si True, permite editar el texto.
+            scale: Factor de escala.
             parent: Widget padre.
         """
         super().__init__(parent)
         self._text = ""
         self._editable = editable
+        self._scale = scale
         self._text_color = QColor("#00FF00")  # Verde LCD por defecto
-        self._font = QFont("Courier New", 14, QFont.Weight.Bold)
-        self._padding = 15
+        # Ajustar tamaño de fuente según escala
+        font_size = max(8, int(14 * scale))
+        self._font = QFont("Courier New", font_size, QFont.Weight.Bold)
+        self._padding = max(5, int(15 * scale))
 
         # Cargar imagen de fondo (usando carga robusta para PNGs no estándar)
-        self._bg_image = load_pixmap(bg_image)
+        self._bg_image = load_pixmap(bg_image, scale)
 
         # Fijar tamaño al tamaño de la imagen
         self.setFixedSize(self._bg_image.size())
