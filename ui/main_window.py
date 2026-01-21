@@ -11,6 +11,7 @@ from PyQt6.QtCore import Qt, QThread, pyqtSignal
 from PyQt6.QtGui import QPalette, QBrush
 
 from src import GrooveExtractor, ExtractorConfig
+from src.models import JamaicanStyle
 from .widgets.image_loader import load_pixmap
 from .widgets import (
     ImagePad,
@@ -56,11 +57,13 @@ class AnalysisThread(QThread):
     bpm_detected = pyqtSignal(float, str)
     drums_separated = pyqtSignal(str)  # Ruta al archivo de batería separada
 
-    def __init__(self, audio_file: str, use_stems: bool = True, save_metadata: bool = True):
+    def __init__(self, audio_file: str, use_stems: bool = True, save_metadata: bool = True,
+                 style_hint: JamaicanStyle = None):
         super().__init__()
         self.audio_file = audio_file
         self.use_stems = use_stems
         self.save_metadata = save_metadata
+        self.style_hint = style_hint
         self.config = ExtractorConfig(
             use_stem_separation=use_stems,
             analyze_hihat_type=True,
@@ -88,7 +91,7 @@ class AnalysisThread(QThread):
             self.status.emit("Onsetak detektatzen...")
             self.progress.emit(45)
 
-            self.groove_data = self.extractor.extract(self.audio_file)
+            self.groove_data = self.extractor.extract(self.audio_file, style_hint=self.style_hint)
 
             self.status.emit("BPM kalkulatzen...")
             self.progress.emit(60)
@@ -699,6 +702,16 @@ class MainWindow(QMainWindow):
     def set_hihat_level(self, level: float):
         self.led_hihat.set_brightness(level)
 
+    # Mapeo de knob index a JamaicanStyle
+    KNOB_TO_STYLE = {
+        0: JamaicanStyle.SKA,           # Ska
+        1: JamaicanStyle.ROCKSTEADY,    # Rocksteady
+        2: JamaicanStyle.ONE_DROP,      # Early Reggae -> One Drop
+        3: JamaicanStyle.ROCKERS,       # Roots Reggae -> Rockers
+        4: JamaicanStyle.STEPPERS,      # Steppers
+        5: JamaicanStyle.DUB,           # Dub (tratar como One Drop para BPM)
+    }
+
     # ==================== BACKEND ====================
     def _start_analysis(self):
         if not self.audio_file:
@@ -711,10 +724,16 @@ class MainWindow(QMainWindow):
         use_stems = self.switch_banatu.is_on()
         save_metadata = self.switch_metadata.is_on()
 
+        # Leer estilo del knob y convertir a JamaicanStyle
+        knob_value = self.knob_style.value()
+        style_hint = self.KNOB_TO_STYLE.get(knob_value, JamaicanStyle.ONE_DROP)
+        print(f"[UI DEBUG] Knob value: {knob_value} -> style_hint: {style_hint}")
+
         self.analysis_thread = AnalysisThread(
             self.audio_file,
             use_stems=use_stems,
-            save_metadata=save_metadata
+            save_metadata=save_metadata,
+            style_hint=style_hint
         )
         self.analysis_thread.progress.connect(self._on_analysis_progress)
         self.analysis_thread.status.connect(self._on_analysis_status)

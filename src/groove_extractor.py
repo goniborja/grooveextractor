@@ -9,6 +9,7 @@ from .models import (
     GrooveData, InstrumentData, GridMapping, OnsetList,
     JamaicanStyle, SwingAnalysis, HumanizationStats
 )
+from typing import Optional
 from .detectors import OnsetDetector
 from .classifiers import HiHatClassifier
 from .converters import TimingConverter
@@ -60,13 +61,15 @@ class GrooveExtractor:
         # Timing converter se inicializa despues de detectar BPM
         self.timing_converter = None
 
-    def extract(self, audio_path: str, output_path: Optional[str] = None) -> GrooveData:
+    def extract(self, audio_path: str, output_path: Optional[str] = None,
+                style_hint: Optional[JamaicanStyle] = None) -> GrooveData:
         """
         Ejecuta el pipeline completo de extraccion.
 
         Args:
             audio_path: Ruta al archivo de audio
             output_path: Ruta para Excel de salida (opcional)
+            style_hint: Estilo sugerido por el usuario (prioridad sobre deteccion)
 
         Returns:
             GrooveData con todos los datos extraidos
@@ -100,8 +103,8 @@ class GrooveExtractor:
             # Sin separacion: usar audio completo para cada analisis
             stems = SeparatedStems(kick=y, snare=y, hihat=y, sr=sr)
 
-        # 3. Detectar BPM y estilo
-        bpm_result = self._analyze_bpm(y, stems)
+        # 3. Detectar BPM y estilo (usando style_hint si se proporciono)
+        bpm_result = self._analyze_bpm(y, stems, style_hint)
 
         # 4. Inicializar timing converter con BPM detectado
         self.timing_converter = TimingConverter(bpm=bpm_result.bpm_corrected)
@@ -134,7 +137,8 @@ class GrooveExtractor:
 
         return groove
 
-    def _analyze_bpm(self, y: np.ndarray, stems: SeparatedStems):
+    def _analyze_bpm(self, y: np.ndarray, stems: SeparatedStems,
+                     style_hint: Optional[JamaicanStyle] = None):
         """Analiza BPM usando patron de kick/snare si disponible."""
         # Detectar onsets para analisis de patron
         kick_onsets = self.onset_detector.detect_kick(
@@ -146,7 +150,7 @@ class GrooveExtractor:
 
         # Usar analyze_with_pattern para deteccion inteligente
         return self.bpm_analyzer.analyze_with_pattern(
-            y, kick_onsets.times, snare_onsets.times
+            y, kick_onsets.times, snare_onsets.times, style_hint
         )
 
     def _process_kick(self, groove: GrooveData, y: np.ndarray):
