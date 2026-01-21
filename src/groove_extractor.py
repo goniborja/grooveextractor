@@ -305,25 +305,46 @@ def detect_bpm_only(audio_path: str, style_hint: Optional[str] = None) -> BPMRes
         >>> result = detect_bpm_only("song.wav", style_hint="one_drop")
         >>> print(f"BPM: {result.bpm}, Estilo: {result.style.value}")
     """
+    from .models import suggest_bpm_correction, suggest_style_from_bpm
+
     # Cargar audio
     y, sr = librosa.load(str(audio_path), sr=22050)
 
     # Crear analizador
     analyzer = JamaicanBPMAnalyzer(sr=sr)
 
-    # Analizar con o sin hint de estilo
+    # Analizar BPM
+    bpm_data = analyzer.analyze(y)
+
+    # Si hay style_hint, aplicar correccion manual basada en el estilo
+    bpm_final = bpm_data.bpm_corrected
+    style_final = bpm_data.style_suggested
+
     if style_hint:
-        bpm_data = analyzer.analyze(y, style_hint=style_hint)
-    else:
-        bpm_data = analyzer.analyze(y)
+        # Mapear style_hint a JamaicanStyle
+        style_map = {
+            "ska": JamaicanStyle.SKA,
+            "rocksteady": JamaicanStyle.ROCKSTEADY,
+            "early_reggae": JamaicanStyle.EARLY_REGGAE,
+            "roots": JamaicanStyle.ONE_DROP,
+            "one_drop": JamaicanStyle.ONE_DROP,
+            "steppers": JamaicanStyle.STEPPERS,
+            "dub": JamaicanStyle.DUB,
+        }
+        hint_style = style_map.get(style_hint.lower())
+
+        if hint_style:
+            # Aplicar correccion basada en el hint
+            bpm_final, _ = suggest_bpm_correction(bpm_data.bpm_detected, hint_style)
+            style_final = hint_style
 
     # Determinar si hubo correccion half-time
-    is_half_time = bpm_data.bpm_corrected < bpm_data.bpm_detected * 0.75
+    is_half_time = bpm_final < bpm_data.bpm_detected * 0.75
 
     return BPMResult(
-        bpm=bpm_data.bpm_corrected,
+        bpm=bpm_final,
         bpm_raw=bpm_data.bpm_detected,
-        style=bpm_data.style_suggested,
+        style=style_final,
         confidence=bpm_data.confidence,
         is_half_time=is_half_time
     )
