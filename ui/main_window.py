@@ -29,16 +29,16 @@ ASSETS_DIR = ASSETS_BASE / "Assets"
 ONESHOTS_DIR = ASSETS_DIR / "Animations" / "Oneshots"
 STRIPS_DIR = ASSETS_DIR / "Animations" / "Strips"
 
-# Escalas para que los widgets quepan en 1200x800 (reducido ~17%)
-SCALE_PAD = 0.33         # Pads: 208 -> 69px
-SCALE_SWITCH = 0.58      # Switches: 102x44 -> 59x26
-SCALE_SLIDER_V = 0.25    # Sliders verticales: 104x444 -> 26x111
-SCALE_SLIDER_H = 0.29    # Sliders horizontales: 444x104 -> 129x30
-SCALE_KNOB = 0.5         # Knob small: 120 -> 60px
-SCALE_LED = 0.1          # LED: 96x413 -> 10x41
-SCALE_BUTTON = 0.58      # Buttons small: 144x62 -> 84x36
-SCALE_SCREEN = 0.29      # Screen: 510x110 -> 148x32
-SCALE_VU = 0.5           # VU meter: 325x184 -> 163x92
+# Escalas para que los widgets quepan en 1200x800 (reducido ~33% total)
+SCALE_PAD = 0.26         # Pads: 208 -> 54px
+SCALE_SWITCH = 0.46      # Switches: 102x44 -> 47x20
+SCALE_SLIDER_V = 0.20    # Sliders verticales: 104x444 -> 21x89
+SCALE_SLIDER_H = 0.23    # Sliders horizontales: 444x104 -> 102x24
+SCALE_KNOB = 0.40        # Knob small: 120 -> 48px
+SCALE_LED = 0.08         # LED: 96x413 -> 8x33
+SCALE_BUTTON = 0.46      # Buttons small: 144x62 -> 66x29
+SCALE_SCREEN = 0.23      # Screen: 510x110 -> 117x25
+SCALE_VU = 0.45          # VU meter: 325x184 -> 146x83
 
 
 class AnalysisThread(QThread):
@@ -414,10 +414,10 @@ class MainWindow(QMainWindow):
         self.screen_progress = VintageScreen(
             str(ASSETS_DIR / "screen.png"),
             editable=False,
-            scale=0.4  # Un poco más grande para el porcentaje
+            scale=0.32  # Un poco más grande para el porcentaje
         )
         self.screen_progress.set_text("0%")
-        self.screen_progress.set_font_size(14)
+        self.screen_progress.set_font_size(12)
         layout.addWidget(self.screen_progress, alignment=Qt.AlignmentFlag.AlignCenter)
 
         return zone
