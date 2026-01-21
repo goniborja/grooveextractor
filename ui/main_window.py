@@ -69,9 +69,13 @@ class AnalysisThread(QThread):
             analyze_hihat_type=True,
             export_excel=save_metadata  # Solo guardar en database.xlsx si metadatos activado
         )
-        self.extractor = GrooveExtractor(self.config)
+        self.extractor = GrooveExtractor(self.config, progress_callback=self._on_progress)
         self.groove_data = None
         self.separated_drums_path = None
+
+    def _on_progress(self, message: str):
+        """Callback para recibir mensajes de progreso del separador."""
+        self.status.emit(message)
 
     def run(self):
         try:

@@ -61,21 +61,37 @@ class DrumSeparator:
     Fase 2: DrumSep separa bateria en kick/snare/hihat/toms
 
     Si audio-separator no esta disponible, usa separacion por frecuencia como fallback.
+
+    Soporta callback para reportar progreso a la UI.
     """
 
-    def __init__(self, output_dir: Optional[str] = None):
+    def __init__(self, output_dir: Optional[str] = None, progress_callback=None):
         """
         Inicializa el separador.
 
         Args:
             output_dir: Directorio para archivos temporales
+            progress_callback: Funcion callback(mensaje: str) para reportar progreso
         """
         self.output_dir = output_dir or tempfile.mkdtemp(prefix="drum_sep_")
         self._demucs_separator = None
         self._drumsep_separator = None
+        self._progress_callback = progress_callback
 
         if not HAS_LIBROSA:
             raise ImportError("librosa es requerido. Instalar con: pip install librosa")
+
+    def set_progress_callback(self, callback):
+        """Establece el callback para reportar progreso."""
+        self._progress_callback = callback
+
+    def _report_progress(self, message: str):
+        """Reporta progreso via callback y consola."""
+        print(message)
+        if self._progress_callback:
+            # Limpiar mensaje para UI (quitar prefijo [ANALISIS])
+            clean_msg = message.replace("[ANALISIS] ", "")
+            self._progress_callback(clean_msg)
 
     @property
     def is_available(self) -> bool:
@@ -122,10 +138,10 @@ class DrumSeparator:
             Tuple de (drums_audio, sr)
         """
         if not HAS_AUDIO_SEPARATOR:
-            print("[ANALISIS] Fase 1: audio-separator no disponible, usando audio original")
+            self._report_progress("[ANALISIS] Fase 1: audio-separator no disponible, usando audio original")
             return y, sr
 
-        print("[ANALISIS] Fase 1: Extrayendo bateria con Demucs...")
+        self._report_progress("[ANALISIS] Fase 1: Extrayendo bateria con Demucs...")
 
         # Guardar a archivo temporal
         with tempfile.NamedTemporaryFile(suffix=".wav", delete=False) as f:
@@ -145,7 +161,7 @@ class DrumSeparator:
                     return drums_audio, drums_sr
 
             # Si no encontramos drums, devolver audio original
-            print("[ANALISIS] Fase 1: No se encontro stem de drums, usando audio original")
+            self._report_progress("[ANALISIS] Fase 1: No se encontro stem de drums, usando audio original")
             return y, sr
 
         finally:
@@ -180,10 +196,10 @@ class DrumSeparator:
             SeparatedStems con kick, snare, hihat, toms
         """
         if not HAS_AUDIO_SEPARATOR:
-            print("[ANALISIS] Fase 2: audio-separator no disponible, usando separacion por frecuencia")
+            self._report_progress("[ANALISIS] Fase 2: audio-separator no disponible, usando separacion por frecuencia")
             return self._split_drums_by_frequency(drums_y, sr)
 
-        print("[ANALISIS] Fase 2: Separando kick/snare/hihat con DrumSep...")
+        self._report_progress("[ANALISIS] Fase 2: Separando kick/snare/hihat con DrumSep...")
 
         # Guardar a archivo temporal
         with tempfile.NamedTemporaryFile(suffix=".wav", delete=False) as f:
@@ -293,18 +309,18 @@ class DrumSeparator:
         Returns:
             SeparatedStems con kick/snare de pipeline y hihat de directo
         """
-        print("[ANALISIS] Modo hibrido: kick/snare de Demucs+DrumSep, hihat de DrumSep directo")
+        self._report_progress("[ANALISIS] Modo hibrido: kick/snare de Demucs+DrumSep, hihat de DrumSep directo")
 
         if not HAS_AUDIO_SEPARATOR:
-            print("[ANALISIS] audio-separator no disponible, usando separacion por frecuencia")
+            self._report_progress("[ANALISIS] audio-separator no disponible, usando separacion por frecuencia")
             return self._split_drums_by_frequency(y, sr)
 
         # PASO 1: Pipeline completo para kick y snare
-        print("[ANALISIS] Paso 1/2: Ejecutando Demucs + DrumSep para kick/snare...")
+        self._report_progress("[ANALISIS] Paso 1/2: Ejecutando Demucs + DrumSep para kick/snare...")
         stems_pipeline = self.separate_full_pipeline(y, sr)
 
         # PASO 2: DrumSep directo para hihat
-        print("[ANALISIS] Paso 2/2: Ejecutando DrumSep directo para hihat...")
+        self._report_progress("[ANALISIS] Paso 2/2: Ejecutando DrumSep directo para hihat...")
         stems_direct = self.separate_drums(y, sr)
 
         # COMBINAR: kick/snare de pipeline, hihat de directo
@@ -384,22 +400,22 @@ class DrumSeparator:
         Returns:
             SeparatedStems con hihat de filtro vintage y kick/snare de DrumSep
         """
-        print("[ANALISIS] Modo OLDIE: hi-hat vintage (3500-8500 Hz)")
+        self._report_progress("[ANALISIS] Modo OLDIE: hi-hat vintage (3500-8500 Hz)")
 
         if not HAS_AUDIO_SEPARATOR:
-            print("[ANALISIS] audio-separator no disponible, usando separacion por frecuencia")
+            self._report_progress("[ANALISIS] audio-separator no disponible, usando separacion por frecuencia")
             return self._split_drums_by_frequency(y, sr)
 
         # PASO 1: Extraer drums con Demucs
-        print("[ANALISIS] Paso 1/3: Extrayendo bateria con Demucs...")
+        self._report_progress("[ANALISIS] Paso 1/3: Extrayendo bateria con Demucs...")
         drums_audio, drums_sr = self.extract_drums_from_mix(y, sr)
 
         # PASO 2: Extraer hi-hat con filtro vintage (3500-8500 Hz)
-        print("[ANALISIS] Paso 2/3: Filtrando hi-hat vintage (3500-8500 Hz)...")
+        self._report_progress("[ANALISIS] Paso 2/3: Filtrando hi-hat vintage (3500-8500 Hz)...")
         hihat_filtered = self._extract_hihat_by_frequency(drums_audio, drums_sr, 3500, 8500)
 
         # PASO 3: Extraer kick/snare con DrumSep
-        print("[ANALISIS] Paso 3/3: Separando kick/snare con DrumSep...")
+        self._report_progress("[ANALISIS] Paso 3/3: Separando kick/snare con DrumSep...")
         stems_drumsep = self.separate_drums(drums_audio, drums_sr)
 
         # COMBINAR: hihat del filtro, kick/snare de DrumSep
@@ -438,22 +454,22 @@ class DrumSeparator:
         Returns:
             SeparatedStems con hihat de filtro moderno y kick/snare de DrumSep
         """
-        print("[ANALISIS] Modo NEWIE: hi-hat moderno (4500-10000 Hz)")
+        self._report_progress("[ANALISIS] Modo NEWIE: hi-hat moderno (4500-10000 Hz)")
 
         if not HAS_AUDIO_SEPARATOR:
-            print("[ANALISIS] audio-separator no disponible, usando separacion por frecuencia")
+            self._report_progress("[ANALISIS] audio-separator no disponible, usando separacion por frecuencia")
             return self._split_drums_by_frequency(y, sr)
 
         # PASO 1: Extraer drums con Demucs
-        print("[ANALISIS] Paso 1/3: Extrayendo bateria con Demucs...")
+        self._report_progress("[ANALISIS] Paso 1/3: Extrayendo bateria con Demucs...")
         drums_audio, drums_sr = self.extract_drums_from_mix(y, sr)
 
         # PASO 2: Extraer hi-hat con filtro moderno (4500-10000 Hz)
-        print("[ANALISIS] Paso 2/3: Filtrando hi-hat moderno (4500-10000 Hz)...")
+        self._report_progress("[ANALISIS] Paso 2/3: Filtrando hi-hat moderno (4500-10000 Hz)...")
         hihat_filtered = self._extract_hihat_by_frequency(drums_audio, drums_sr, 4500, 10000)
 
         # PASO 3: Extraer kick/snare con DrumSep
-        print("[ANALISIS] Paso 3/3: Separando kick/snare con DrumSep...")
+        self._report_progress("[ANALISIS] Paso 3/3: Separando kick/snare con DrumSep...")
         stems_drumsep = self.separate_drums(drums_audio, drums_sr)
 
         # COMBINAR: hihat del filtro, kick/snare de DrumSep
