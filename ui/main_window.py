@@ -5,10 +5,10 @@ Usa widgets basados en imágenes PNG del kit Vintage Obsession.
 
 from pathlib import Path
 from PyQt6.QtWidgets import (
-    QMainWindow, QWidget, QVBoxLayout, QHBoxLayout, QLabel, QFileDialog, QSpacerItem, QSizePolicy
+    QMainWindow, QWidget, QVBoxLayout, QHBoxLayout, QLabel, QFileDialog
 )
 from PyQt6.QtCore import Qt, QThread, pyqtSignal
-from PyQt6.QtGui import QPixmap, QPalette, QBrush
+from PyQt6.QtGui import QPalette, QBrush
 
 from src import GrooveExtractor, ExtractorConfig
 from .widgets.image_loader import load_pixmap
@@ -30,69 +30,93 @@ ONESHOTS_DIR = ASSETS_DIR / "Animations" / "Oneshots"
 STRIPS_DIR = ASSETS_DIR / "Animations" / "Strips"
 
 # ==================== ESCALAS ====================
-# Pads
 SCALE_PAD = 0.26              # Pads normales
-SCALE_PAD_AZTERTU = 0.55      # AZTERTU: el más grande de toda la UI
-
-# Knobs
 SCALE_KNOB_SMALL = 0.25       # Knobs pequeños (METADATUAK, BANATU)
-SCALE_KNOB_ESTILO = 0.22      # Knob ESTILOA (grande)
-
-# Switches
+SCALE_KNOB_ESTILO = 0.22      # Knob ESTILOA
+SCALE_KNOB_AZTERTU = 0.30     # Knob AZTERTU (el más grande)
 SCALE_SWITCH = 0.46
-
-# VU Meter y LEDs
 SCALE_VU = 0.85               # VU meter muy grande
-SCALE_LED_METER = 0.35        # LED meters x3 más grandes
-
-# Screens
+SCALE_LED_METER = 0.35        # LED meters
 SCALE_SCREEN_SMALL = 0.23     # Screens pequeños
-SCALE_SCREEN_BIG = 0.65       # Screens grandes (zona D) - x3
-
-# Botones
+SCALE_SCREEN_BIG = 0.65       # Screens grandes (zona D)
+SCALE_SCREEN_LOG = 0.40       # Screen de log de proceso
 SCALE_BUTTON = 0.46
+
+# Margen izquierdo para zonas A, D, G
+LEFT_MARGIN = 30
 
 
 class AnalysisThread(QThread):
     """Thread para análisis de audio sin bloquear la UI."""
 
     progress = pyqtSignal(int)
+    status = pyqtSignal(str)  # Para mensajes de log
     finished = pyqtSignal(dict)
     error = pyqtSignal(str)
     bpm_detected = pyqtSignal(float, str)
+    drums_separated = pyqtSignal(str)  # Ruta al archivo de batería separada
 
-    def __init__(self, audio_file: str, use_separation: bool = False, use_full_stems: bool = False):
+    def __init__(self, audio_file: str, use_stems: bool = True, save_metadata: bool = True):
         super().__init__()
         self.audio_file = audio_file
-        self.use_separation = use_separation
-        self.use_full_stems = use_full_stems
+        self.use_stems = use_stems
+        self.save_metadata = save_metadata
         self.config = ExtractorConfig(
-            use_stem_separation=use_separation,
+            use_stem_separation=use_stems,
             analyze_hihat_type=True,
-            export_excel=False
+            export_excel=save_metadata  # Solo guardar en database.xlsx si metadatos activado
         )
         self.extractor = GrooveExtractor(self.config)
         self.groove_data = None
+        self.separated_drums_path = None
 
     def run(self):
         try:
-            self.progress.emit(10)
-            self.progress.emit(30)
+            self.status.emit("Kargatzen audioa...")
+            self.progress.emit(5)
+
+            # Paso 1: Separar batería con Demucs
+            self.status.emit("Bateria banatzen (Demucs)...")
+            self.progress.emit(15)
+
+            # Paso 2: Separar stems si está activado
+            if self.use_stems:
+                self.status.emit("Stems banatzen (bombo/caja/hihat)...")
+                self.progress.emit(30)
+
+            # Paso 3: Análisis completo
+            self.status.emit("Onsetak detektatzen...")
+            self.progress.emit(45)
+
             self.groove_data = self.extractor.extract(self.audio_file)
-            self.progress.emit(70)
+
+            self.status.emit("BPM kalkulatzen...")
+            self.progress.emit(60)
             self.bpm_detected.emit(self.groove_data.bpm, self.groove_data.style.value)
-            self.progress.emit(90)
+
+            self.status.emit("Swing analizatzen...")
+            self.progress.emit(75)
+
+            # Paso 4: Guardar en database.xlsx si metadatos activado
+            if self.save_metadata:
+                self.status.emit("Metadatuak gordetzen...")
+                self.progress.emit(85)
+
+            self.status.emit("Emaitzak prestatzen...")
+            self.progress.emit(95)
+
             results = self.extractor.extract_to_dict(self.audio_file)
+
             self.progress.emit(100)
+            self.status.emit("Amaituta!")
             self.finished.emit(results)
+
         except Exception as e:
             self.error.emit(str(e))
 
-    def export_to_excel(self, output_path: str):
-        if self.groove_data:
-            from src.exporters import ExcelExporter
-            exporter = ExcelExporter()
-            exporter.export(self.groove_data, output_path)
+    def get_separated_drums_path(self) -> str:
+        """Retorna la ruta al archivo de batería separada."""
+        return self.separated_drums_path
 
 
 class MainWindow(QMainWindow):
@@ -101,7 +125,6 @@ class MainWindow(QMainWindow):
     # Señales
     import_song_clicked = pyqtSignal()
     export_drums_clicked = pyqtSignal()
-    detect_bpm_clicked = pyqtSignal()
     analyze_clicked = pyqtSignal()
     metadata_toggled = pyqtSignal(bool)
     separation_toggled = pyqtSignal(bool)
@@ -119,8 +142,10 @@ class MainWindow(QMainWindow):
         self.audio_file = None
         self.analysis_thread = None
         self._last_results = None
+        self._separated_drums_path = None
         self._init_ui()
         self._connect_signals()
+        self._set_default_states()
 
     def _init_ui(self):
         self.setWindowTitle("Groove Extractor - Vintage Edition")
@@ -134,9 +159,10 @@ class MainWindow(QMainWindow):
         main_layout.setSpacing(10)
         main_layout.setContentsMargins(15, 15, 15, 15)
 
-        # Columna izquierda (A, D, G)
+        # Columna izquierda (A, D, G) - con margen izquierdo extra
         left_column = QVBoxLayout()
         left_column.setSpacing(10)
+        left_column.setContentsMargins(LEFT_MARGIN, 0, 0, 0)  # Margen izquierdo
         left_column.addWidget(self._create_zone_a())
         left_column.addWidget(self._create_zone_d())
         left_column.addStretch(1)
@@ -168,6 +194,19 @@ class MainWindow(QMainWindow):
         else:
             self.setStyleSheet("background-color: #1a1a1a;")
 
+    def _set_default_states(self):
+        """Configura estados por defecto de los switches."""
+        # METADATUAK: activado por defecto (sí guardar metadatos)
+        self.switch_metadata.set_state(True)
+        self.knob_metadata.set_value(1)
+
+        # BANATU: activado por defecto (sí separar stems)
+        self.switch_banatu.set_state(True)
+        self.knob_banatu.set_value(1)
+
+        # MIDI/WAV: WAV por defecto (switch en estado 2 = WAV)
+        self.switch_format.set_state(True)
+
     def _create_label(self, text: str) -> QLabel:
         label = QLabel(text)
         label.setStyleSheet("color: #AAAAAA; font-size: 9px; font-weight: bold;")
@@ -176,7 +215,7 @@ class MainWindow(QMainWindow):
 
     # ==================== ZONA A ====================
     def _create_zone_a(self) -> QWidget:
-        """Zona A: KARGATU (izquierda) + METADATUAK (knob+switch) + BANATU (knob+switch)."""
+        """Zona A: KARGATU + METADATUAK (knob+switch) + BANATU (knob+switch)."""
         zone = QWidget()
         layout = QVBoxLayout(zone)
         layout.setSpacing(12)
@@ -213,7 +252,7 @@ class MainWindow(QMainWindow):
         meta_layout.addStretch()
         layout.addLayout(meta_layout)
 
-        # BANATU - knob pequeño + switch (separar batería)
+        # BANATU - knob pequeño + switch
         banatu_layout = QHBoxLayout()
         banatu_layout.setSpacing(8)
         self.knob_banatu = FilmstripKnob(
@@ -235,7 +274,7 @@ class MainWindow(QMainWindow):
 
     # ==================== ZONA B ====================
     def _create_zone_b(self) -> QWidget:
-        """Zona B: VU meter (muy grande), LED meters (x3), AZTERTU (el más grande)."""
+        """Zona B: VU meter, screen status, LED meters, AZTERTU (knob), log de proceso."""
         zone = QWidget()
         layout = QVBoxLayout(zone)
         layout.setSpacing(8)
@@ -256,7 +295,7 @@ class MainWindow(QMainWindow):
         self.screen_status.set_text_color("#888888")
         layout.addWidget(self.screen_status, alignment=Qt.AlignmentFlag.AlignCenter)
 
-        # LED Meters - x3 más grandes
+        # LED Meters
         meters_layout = QHBoxLayout()
         meters_layout.setSpacing(30)
 
@@ -274,28 +313,40 @@ class MainWindow(QMainWindow):
 
         layout.addLayout(meters_layout)
 
-        # AZTERTU - el PAD más grande de toda la UI
-        self.pad_analyze = ImagePad(
-            str(ONESHOTS_DIR / "pad_off.png"),
-            str(ONESHOTS_DIR / "pad_on.png"),
-            "AZTERTU",
-            scale=SCALE_PAD_AZTERTU
+        # AZTERTU - KNOB grande (no pad)
+        aztertu_layout = QVBoxLayout()
+        aztertu_layout.setSpacing(3)
+        self.knob_analyze = FilmstripKnob(
+            str(STRIPS_DIR / "Knob_big.png"),
+            128, num_positions=2, scale=SCALE_KNOB_AZTERTU
         )
-        layout.addWidget(self.pad_analyze, alignment=Qt.AlignmentFlag.AlignCenter)
-        layout.addWidget(self._create_label("AZTERTU"))
+        aztertu_layout.addWidget(self.knob_analyze, alignment=Qt.AlignmentFlag.AlignCenter)
+        aztertu_layout.addWidget(self._create_label("AZTERTU"))
+        layout.addLayout(aztertu_layout)
+
+        # Screen de log de proceso
+        self.screen_log = VintageScreen(
+            str(ASSETS_DIR / "screen.png"),
+            editable=False,
+            scale=SCALE_SCREEN_LOG
+        )
+        self.screen_log.set_text("Prest analisatzeko")
+        self.screen_log.set_text_color("#66AA66")  # Verde suave
+        layout.addWidget(self.screen_log, alignment=Qt.AlignmentFlag.AlignCenter)
 
         return zone
 
     # ==================== ZONA C ====================
     def _create_zone_c(self) -> QWidget:
-        """Zona C: ESPORTATU, switch MIDI/WAV, IREKI/GORDE (muy abajo)."""
+        """Zona C: ESPORTATU (exporta batería WAV/MIDI), switch, IREKI/GORDE (muy abajo)."""
         zone = QWidget()
         layout = QVBoxLayout(zone)
         layout.setSpacing(0)
         layout.setContentsMargins(5, 5, 5, 5)
 
-        # ESPORTATU arriba
         layout.addStretch(1)
+
+        # ESPORTATU - exporta batería separada
         self.pad_export = ImagePad(
             str(ONESHOTS_DIR / "pad_off.png"),
             str(ONESHOTS_DIR / "pad_on.png"),
@@ -305,8 +356,9 @@ class MainWindow(QMainWindow):
         layout.addWidget(self.pad_export, alignment=Qt.AlignmentFlag.AlignCenter)
         layout.addWidget(self._create_label("ESPORTATU"))
 
-        # Switch MIDI/WAV
         layout.addStretch(1)
+
+        # Switch MIDI/WAV (WAV por defecto)
         format_layout = QHBoxLayout()
         format_layout.setSpacing(5)
         format_layout.addStretch()
@@ -322,9 +374,9 @@ class MainWindow(QMainWindow):
         layout.addLayout(format_layout)
 
         # Espacio grande antes de IREKI/GORDE
-        layout.addStretch(4)
+        layout.addStretch(6)
 
-        # IREKI
+        # IREKI (sin función por ahora)
         self.btn_open = ImageButton(
             str(STRIPS_DIR / "but_small_rectangle.png"),
             6, "IREKI",
@@ -334,7 +386,7 @@ class MainWindow(QMainWindow):
 
         layout.addStretch(1)
 
-        # GORDE
+        # GORDE (sin función por ahora)
         self.btn_save = ImageButton(
             str(STRIPS_DIR / "but_small_rectangle.png"),
             6, "GORDE",
@@ -348,13 +400,13 @@ class MainWindow(QMainWindow):
 
     # ==================== ZONA D ====================
     def _create_zone_d(self) -> QWidget:
-        """Zona D: Knob ESTILOA (grande) + 3 screens (grandes, más abajo)."""
+        """Zona D: Solo 1 knob ESTILOA + 3 screens grandes."""
         zone = QWidget()
         layout = QVBoxLayout(zone)
         layout.setSpacing(15)
         layout.setContentsMargins(5, 5, 5, 5)
 
-        # Knob ESTILOA - grande
+        # Knob ESTILOA - solo 1 knob
         knob_layout = QVBoxLayout()
         knob_layout.setSpacing(3)
         self.knob_style = FilmstripKnob(
@@ -366,10 +418,9 @@ class MainWindow(QMainWindow):
         knob_layout.addWidget(self._create_label("ESTILOA"))
         layout.addLayout(knob_layout)
 
-        # Espacio antes de los screens
         layout.addSpacing(20)
 
-        # Screens grandes (x3)
+        # Screens grandes
         screens_layout = QVBoxLayout()
         screens_layout.setSpacing(8)
 
@@ -425,13 +476,12 @@ class MainWindow(QMainWindow):
 
     # ==================== ZONA G ====================
     def _create_zone_g(self) -> QWidget:
-        """Zona G: BPM ANTZEMAN (sin slider horizontal - no tiene función clara)."""
+        """Zona G: BPM ANTZEMAN."""
         zone = QWidget()
         layout = QVBoxLayout(zone)
         layout.setSpacing(8)
         layout.setContentsMargins(5, 5, 5, 5)
 
-        # Pad detectar BPM
         self.pad_bpm = ImagePad(
             str(ONESHOTS_DIR / "pad_off.png"),
             str(ONESHOTS_DIR / "pad_on.png"),
@@ -452,14 +502,15 @@ class MainWindow(QMainWindow):
         self.knob_banatu.value_changed.connect(self._on_banatu_knob_changed)
         self.switch_banatu.toggled.connect(self.separation_toggled.emit)
 
-        # Zona B
-        self.pad_analyze.clicked.connect(self._on_analyze_clicked)
+        # Zona B - AZTERTU ahora es un knob
+        self.knob_analyze.value_changed.connect(self._on_analyze_knob_changed)
 
         # Zona C
         self.pad_export.clicked.connect(self._on_export_clicked)
         self.switch_format.toggled.connect(self._on_format_changed)
-        self.btn_open.clicked.connect(self.open_project_clicked.emit)
-        self.btn_save.clicked.connect(self.save_project_clicked.emit)
+        # IREKI/GORDE sin función por ahora
+        self.btn_open.clicked.connect(lambda: self.screen_status.set_text("IREKI: etorkizunean"))
+        self.btn_save.clicked.connect(lambda: self.screen_status.set_text("GORDE: etorkizunean"))
 
         # Zona D
         self.knob_style.value_changed.connect(self._on_style_changed)
@@ -478,25 +529,34 @@ class MainWindow(QMainWindow):
         if file_name:
             self.audio_file = file_name
             self.screen_status.set_text(f"Kargatuta: {Path(file_name).name[:12]}")
+            self.screen_log.set_text(f"Audioa: {Path(file_name).name[:20]}")
             self.import_song_clicked.emit()
 
     def _on_metadata_knob_changed(self, value: int):
-        """Knob METADATUAK controla el switch."""
         self.switch_metadata.set_state(value == 1)
 
     def _on_banatu_knob_changed(self, value: int):
-        """Knob BANATU controla el switch."""
         self.switch_banatu.set_state(value == 1)
+
+    def _on_analyze_knob_changed(self, value: int):
+        """Cuando el knob AZTERTU se gira a posición 1, ejecuta análisis."""
+        if value == 1:
+            self._on_analyze_clicked()
+            # Volver a posición 0 después de iniciar
+            self.knob_analyze.set_value(0)
 
     def _on_analyze_clicked(self):
         if not self.audio_file:
             self.screen_status.set_text("Kargatu audioa!")
+            self.screen_log.set_text("Errorea: ez dago audiorik")
             return
         self._start_analysis()
         self.analyze_clicked.emit()
 
     def _on_format_changed(self, is_wav: bool):
-        self.export_format_changed.emit("WAV" if is_wav else "MIDI")
+        fmt = "WAV" if is_wav else "MIDI"
+        self.export_format_changed.emit(fmt)
+        self.screen_log.set_text(f"Formatua: {fmt}")
 
     def _on_style_changed(self, index: int):
         style = self.STYLES[index] if index < len(self.STYLES) else self.STYLES[0]
@@ -522,28 +582,51 @@ class MainWindow(QMainWindow):
             self._start_analysis()
 
     def _on_export_clicked(self):
-        if not self.analysis_thread or not self.analysis_thread.groove_data:
-            self.screen_status.set_text("Ez dago daturik")
+        """Exporta la batería separada como WAV o MIDI."""
+        if not self._separated_drums_path:
+            self.screen_status.set_text("Aztertu lehenik!")
+            self.screen_log.set_text("Errorea: analisatu audioa lehenik")
             return
-        default_name = Path(self.audio_file).stem + "_groove.xlsx" if self.audio_file else "groove.xlsx"
+
+        # Determinar formato
+        is_wav = self.switch_format.is_on()
+        ext = ".wav" if is_wav else ".mid"
+        fmt_name = "WAV" if is_wav else "MIDI"
+
+        default_name = Path(self.audio_file).stem + f"_drums{ext}" if self.audio_file else f"drums{ext}"
+        file_filter = f"{fmt_name} Files (*{ext});;All Files (*)"
+
         output_file, _ = QFileDialog.getSaveFileName(
-            self, "Gorde fitxategia", default_name,
-            "Excel Files (*.xlsx);;All Files (*)"
+            self, "Esportatu bateria", default_name, file_filter
         )
+
         if output_file:
             try:
                 self.screen_status.set_text("Esportatzen...")
-                self.analysis_thread.export_to_excel(output_file)
-                self.screen_status.set_text("Esportatuta!")
+                self.screen_log.set_text(f"Esportatzen: {fmt_name}...")
+
+                if is_wav:
+                    # Copiar archivo WAV separado
+                    import shutil
+                    if self._separated_drums_path and Path(self._separated_drums_path).exists():
+                        shutil.copy(self._separated_drums_path, output_file)
+                        self.screen_status.set_text("Esportatuta!")
+                        self.screen_log.set_text(f"WAV gordeta: {Path(output_file).name[:15]}")
+                    else:
+                        self.screen_status.set_text("Ez dago WAV")
+                        self.screen_log.set_text("Errorea: WAV fitxategia ez dago")
+                else:
+                    # Exportar como MIDI
+                    self.screen_status.set_text("MIDI ez dago prest")
+                    self.screen_log.set_text("MIDI esportazioa etorkizunean")
+
             except Exception as e:
-                self.screen_status.set_text(f"Errorea: {str(e)[:12]}")
+                self.screen_status.set_text(f"Errorea!")
+                self.screen_log.set_text(f"Errorea: {str(e)[:20]}")
 
     # ==================== MÉTODOS PÚBLICOS ====================
     def set_vu_level(self, level: float):
         self.vu_meter.set_level(level)
-
-    def set_status_message(self, message: str):
-        self.screen_status.set_text(message[:25])
 
     def set_progress(self, percent: int):
         self.screen_progress.set_text(f"{percent}%")
@@ -566,16 +649,16 @@ class MainWindow(QMainWindow):
             self.screen_status.set_text("Analisatzen...")
             return
 
-        # Configuración basada en knobs
-        use_separation = self.switch_banatu.is_on()
-        use_full_stems = self.knob_banatu.get_value() == 1
+        use_stems = self.switch_banatu.is_on()
+        save_metadata = self.switch_metadata.is_on()
 
         self.analysis_thread = AnalysisThread(
             self.audio_file,
-            use_separation=use_separation,
-            use_full_stems=use_full_stems
+            use_stems=use_stems,
+            save_metadata=save_metadata
         )
         self.analysis_thread.progress.connect(self._on_analysis_progress)
+        self.analysis_thread.status.connect(self._on_analysis_status)
         self.analysis_thread.finished.connect(self._on_analysis_finished)
         self.analysis_thread.error.connect(self._on_analysis_error)
         self.analysis_thread.bpm_detected.connect(self._on_bpm_detected)
@@ -590,12 +673,29 @@ class MainWindow(QMainWindow):
     def _on_analysis_progress(self, percent: int):
         self.set_progress(percent)
         self.set_vu_level(percent / 100.0)
+        # Actualizar LEDs progresivamente
+        if percent < 33:
+            self.led_kick.set_brightness(percent / 33.0)
+        elif percent < 66:
+            self.led_kick.set_brightness(1.0)
+            self.led_snare.set_brightness((percent - 33) / 33.0)
+        else:
+            self.led_kick.set_brightness(1.0)
+            self.led_snare.set_brightness(1.0)
+            self.led_hihat.set_brightness((percent - 66) / 34.0)
+
+    def _on_analysis_status(self, message: str):
+        """Actualiza el log de proceso."""
+        self.screen_log.set_text(message)
 
     def _on_analysis_finished(self, results: dict):
         self.led_kick.turn_off()
         self.led_snare.turn_off()
         self.led_hihat.turn_off()
         self.screen_status.set_text("Amaituta!")
+
+        # Guardar ruta de batería separada para exportación
+        self._separated_drums_path = results.get('separated_drums_path')
 
         instruments = results.get('instruments', {})
         for name, led_attr in [('kick', 'led_kick'), ('snare', 'led_snare'), ('hihat', 'led_hihat')]:
@@ -610,7 +710,8 @@ class MainWindow(QMainWindow):
         self.led_kick.turn_off()
         self.led_snare.turn_off()
         self.led_hihat.turn_off()
-        self.screen_status.set_text(f"Errorea: {error_msg[:15]}")
+        self.screen_status.set_text(f"Errorea!")
+        self.screen_log.set_text(f"Errorea: {error_msg[:25]}")
         self.set_progress(0)
 
     def _on_bpm_detected(self, bpm: float, style: str):
