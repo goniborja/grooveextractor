@@ -56,13 +56,16 @@ class AnalysisThread(QThread):
     bpm_detected = pyqtSignal(float, str)
     drums_separated = pyqtSignal(str)  # Ruta al archivo de batería separada
 
-    def __init__(self, audio_file: str, use_stems: bool = True, save_metadata: bool = True):
+    def __init__(self, audio_file: str, use_stems: bool = True, save_metadata: bool = True,
+                 separation_mode: str = "oldie"):
         super().__init__()
         self.audio_file = audio_file
         self.use_stems = use_stems
         self.save_metadata = save_metadata
+        self.separation_mode = separation_mode
         self.config = ExtractorConfig(
             use_stem_separation=use_stems,
+            separation_mode=separation_mode,  # "oldie" o "newie"
             analyze_hihat_type=True,
             export_excel=save_metadata  # Solo guardar en database.xlsx si metadatos activado
         )
@@ -155,6 +158,7 @@ class MainWindow(QMainWindow):
     analyze_clicked = pyqtSignal()
     metadata_toggled = pyqtSignal(bool)
     separation_toggled = pyqtSignal(bool)
+    separation_mode_changed = pyqtSignal(str)  # "oldie" or "newie"
     export_format_changed = pyqtSignal(str)
     style_changed = pyqtSignal(str)
     drummer_name_changed = pyqtSignal(str)
@@ -234,6 +238,9 @@ class MainWindow(QMainWindow):
         # MIDI/WAV: WAV por defecto (switch en estado 2 = WAV)
         self.switch_format.set_state(True)
 
+        # OLDIE/NEWIE: OLDIE por defecto (switch apagado = OLDIE)
+        self.switch_mode.set_state(False)
+
     def _create_label(self, text: str) -> QLabel:
         label = QLabel(text)
         label.setStyleSheet("color: #AAAAAA; font-size: 9px; font-weight: bold;")
@@ -296,6 +303,22 @@ class MainWindow(QMainWindow):
         banatu_layout.addWidget(self._create_label("BANATU"))
         banatu_layout.addStretch()
         layout.addLayout(banatu_layout)
+
+        # OLDIE/NEWIE - switch para modo de separación
+        # OLDIE: hi-hat 3500-8500 Hz (vintage jamaicano)
+        # NEWIE: hi-hat 4500-10000 Hz (moderno)
+        mode_layout = QHBoxLayout()
+        mode_layout.setSpacing(5)
+        mode_layout.addWidget(self._create_label("OLDIE"))
+        self.switch_mode = ImageSwitch(
+            str(ONESHOTS_DIR / "switch_hor_st1.png"),
+            str(ONESHOTS_DIR / "switch_hor_st2.png"),
+            scale=SCALE_SWITCH
+        )
+        mode_layout.addWidget(self.switch_mode)
+        mode_layout.addWidget(self._create_label("NEWIE"))
+        mode_layout.addStretch()
+        layout.addLayout(mode_layout)
 
         return zone
 
@@ -531,6 +554,7 @@ class MainWindow(QMainWindow):
         self.switch_metadata.toggled.connect(self.metadata_toggled.emit)
         self.knob_banatu.value_changed.connect(self._on_banatu_knob_changed)
         self.switch_banatu.toggled.connect(self.separation_toggled.emit)
+        self.switch_mode.toggled.connect(self._on_mode_changed)
 
         # Zona B - AZTERTU ahora es un knob
         self.knob_analyze.value_changed.connect(self._on_analyze_knob_changed)
@@ -592,6 +616,13 @@ class MainWindow(QMainWindow):
         fmt = "WAV" if is_wav else "MIDI"
         self.export_format_changed.emit(fmt)
         self.screen_log.set_text(f"Formatua: {fmt}")
+
+    def _on_mode_changed(self, is_newie: bool):
+        """Handler para cambio de modo OLDIE/NEWIE."""
+        mode = "newie" if is_newie else "oldie"
+        self.separation_mode_changed.emit(mode)
+        mode_text = "NEWIE (4.5-10kHz)" if is_newie else "OLDIE (3.5-8.5kHz)"
+        self.screen_log.set_text(f"Modua: {mode_text}")
 
     def _on_style_changed(self, index: int):
         style = self.STYLES[index] if index < len(self.STYLES) else self.STYLES[0]
@@ -710,11 +741,13 @@ class MainWindow(QMainWindow):
 
         use_stems = self.switch_banatu.is_on()
         save_metadata = self.switch_metadata.is_on()
+        separation_mode = "newie" if self.switch_mode.is_on() else "oldie"
 
         self.analysis_thread = AnalysisThread(
             self.audio_file,
             use_stems=use_stems,
-            save_metadata=save_metadata
+            save_metadata=save_metadata,
+            separation_mode=separation_mode
         )
         self.analysis_thread.progress.connect(self._on_analysis_progress)
         self.analysis_thread.status.connect(self._on_analysis_status)
