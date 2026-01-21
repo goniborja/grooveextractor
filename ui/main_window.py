@@ -10,7 +10,7 @@ from PyQt6.QtWidgets import (
 from PyQt6.QtCore import Qt, QThread, pyqtSignal
 from PyQt6.QtGui import QPixmap, QPalette, QBrush
 
-from groove_analyzer import GrooveAnalyzer
+from src import GrooveExtractor, ExtractorConfig
 from .widgets.image_loader import load_pixmap
 from .widgets import (
     ImagePad,
@@ -47,30 +47,50 @@ class AnalysisThread(QThread):
     progress = pyqtSignal(int)
     finished = pyqtSignal(dict)
     error = pyqtSignal(str)
+    bpm_detected = pyqtSignal(float, str)  # bpm, style
 
-    def __init__(self, audio_file: str, tempo: float = 120.0):
+    def __init__(self, audio_file: str, use_separation: bool = False):
         super().__init__()
         self.audio_file = audio_file
-        self.tempo = tempo
-        self.analyzer = GrooveAnalyzer()
+        self.use_separation = use_separation
+        self.config = ExtractorConfig(
+            use_stem_separation=use_separation,
+            analyze_hihat_type=True,
+            export_excel=False  # No exportar automáticamente, lo haremos manualmente
+        )
+        self.extractor = GrooveExtractor(self.config)
+        self.groove_data = None
 
     def run(self):
         """Ejecuta el análisis en segundo plano."""
         try:
             self.progress.emit(10)
-            self.analyzer.load_audio(self.audio_file)
+
+            # Extraer groove completo (BPM, onsets, humanización, swing)
             self.progress.emit(30)
-            self.analyzer.detect_onsets()
-            self.progress.emit(60)
-            self.analyzer.analyze_dynamics()
-            self.progress.emit(80)
-            self.analyzer.calculate_timing_deviations(self.tempo)
+            self.groove_data = self.extractor.extract(self.audio_file)
+
+            self.progress.emit(70)
+
+            # Emitir BPM y estilo detectados
+            self.bpm_detected.emit(self.groove_data.bpm, self.groove_data.style.value)
+
             self.progress.emit(90)
-            results = self.analyzer.get_results()
+
+            # Convertir a diccionario para la UI
+            results = self.extractor.extract_to_dict(self.audio_file)
+
             self.progress.emit(100)
             self.finished.emit(results)
         except Exception as e:
             self.error.emit(str(e))
+
+    def export_to_excel(self, output_path: str):
+        """Exporta los resultados a Excel."""
+        if self.groove_data:
+            from src.exporters import ExcelExporter
+            exporter = ExcelExporter()
+            exporter.export(self.groove_data, output_path)
 
 
 class MainWindow(QMainWindow):
@@ -436,7 +456,7 @@ class MainWindow(QMainWindow):
         self.switch_separate.toggled.connect(self.separate_drums_toggled.emit)
 
         # Zona C
-        self.pad_export.clicked.connect(self.export_drums_clicked.emit)
+        self.pad_export.clicked.connect(self._on_export_clicked)
         self.switch_format.toggled.connect(self._on_format_changed)
         self.btn_open.clicked.connect(self.open_project_clicked.emit)
         self.btn_save.clicked.connect(self.save_project_clicked.emit)
@@ -447,7 +467,7 @@ class MainWindow(QMainWindow):
         self.screen_bpm.text_changed.connect(self._on_bpm_changed)
 
         # Zona G
-        self.pad_bpm.clicked.connect(self.detect_bpm_clicked.emit)
+        self.pad_bpm.clicked.connect(self._on_detect_bpm_clicked)
 
     def _on_import_clicked(self):
         """Maneja click en pad de importar."""
@@ -457,8 +477,10 @@ class MainWindow(QMainWindow):
         )
         if file_name:
             self.audio_file = file_name
-            self.screen_status.set_text(f"Cargado: {Path(file_name).name[:20]}")
+            self.screen_status.set_text(f"Kargatzen: {Path(file_name).name[:15]}")
             self.import_song_clicked.emit()
+            # Iniciar análisis automáticamente
+            self._start_analysis()
 
     def _on_format_changed(self, is_wav: bool):
         """Maneja cambio de formato de exportación."""
@@ -516,3 +538,124 @@ class MainWindow(QMainWindow):
             self.slider_bpm_detect.animate_to(1.0, 1000)
         else:
             self.slider_bpm_detect.animate_to(0.0, 500)
+
+    # ========== Métodos de integración backend ==========
+
+    def _start_analysis(self):
+        """Inicia el análisis del archivo de audio."""
+        if not self.audio_file:
+            self.screen_status.set_text("Ez dago audiorik")
+            return
+
+        if self.analysis_thread and self.analysis_thread.isRunning():
+            self.screen_status.set_text("Analisatzen...")
+            return
+
+        # Obtener configuración desde UI
+        use_separation = self.switch_separate.is_on() if hasattr(self.switch_separate, 'is_on') else False
+
+        # Crear y configurar thread
+        self.analysis_thread = AnalysisThread(self.audio_file, use_separation)
+        self.analysis_thread.progress.connect(self._on_analysis_progress)
+        self.analysis_thread.finished.connect(self._on_analysis_finished)
+        self.analysis_thread.error.connect(self._on_analysis_error)
+        self.analysis_thread.bpm_detected.connect(self._on_bpm_detected)
+
+        # Activar indicadores
+        self.set_analyzing(True)
+        self.set_detecting_bpm(True)
+        self.screen_status.set_text("Analisatzen...")
+
+        # Iniciar
+        self.analysis_thread.start()
+
+    def _on_analysis_progress(self, percent: int):
+        """Actualiza el progreso del análisis."""
+        self.set_progress(percent)
+        # Simular nivel VU basado en progreso
+        self.set_vu_level(percent / 100.0)
+
+    def _on_analysis_finished(self, results: dict):
+        """Maneja la finalización del análisis."""
+        self.set_analyzing(False)
+        self.set_detecting_bpm(False)
+        self.screen_status.set_text("Amaituta!")
+
+        # Actualizar sliders con datos de instrumentos
+        instruments = results.get('instruments', {})
+        if 'kick' in instruments:
+            kick_data = instruments['kick']
+            # Usar porcentaje on_grid como nivel
+            humanization = kick_data.get('humanization', {})
+            on_grid = humanization.get('on_grid_percent', 50) if humanization else 50
+            self.set_kick_level(on_grid / 100.0)
+
+        if 'snare' in instruments:
+            snare_data = instruments['snare']
+            humanization = snare_data.get('humanization', {})
+            on_grid = humanization.get('on_grid_percent', 50) if humanization else 50
+            self.set_snare_level(on_grid / 100.0)
+
+        if 'hihat' in instruments:
+            hihat_data = instruments['hihat']
+            humanization = hihat_data.get('humanization', {})
+            on_grid = humanization.get('on_grid_percent', 50) if humanization else 50
+            self.set_hihat_level(on_grid / 100.0)
+
+        # Guardar resultados para exportación
+        self._last_results = results
+
+    def _on_analysis_error(self, error_msg: str):
+        """Maneja errores del análisis."""
+        self.set_analyzing(False)
+        self.set_detecting_bpm(False)
+        self.screen_status.set_text(f"Errorea: {error_msg[:15]}")
+        self.set_progress(0)
+
+    def _on_bpm_detected(self, bpm: float, style: str):
+        """Actualiza la UI con el BPM y estilo detectados."""
+        self.screen_bpm.set_text(str(int(bpm)))
+
+        # Buscar el índice del estilo y actualizar knob
+        style_lower = style.lower()
+        for i, s in enumerate(self.STYLES):
+            if s.lower() == style_lower or s.lower().replace(" ", "_") == style_lower:
+                self.knob_style.set_value(i)
+                self.screen_style.set_text(s)
+                break
+
+    def _on_detect_bpm_clicked(self):
+        """Detecta BPM del archivo cargado."""
+        if not self.audio_file:
+            self.screen_status.set_text("Kargatu audioa lehenik")
+            return
+
+        # Si ya hay análisis, solo re-emitir los valores
+        if hasattr(self, '_last_results') and self._last_results:
+            bpm = self._last_results.get('bpm', 120)
+            style = self._last_results.get('style', 'ska')
+            self._on_bpm_detected(float(bpm), style)
+        else:
+            # Iniciar análisis completo
+            self._start_analysis()
+
+    def _on_export_clicked(self):
+        """Exporta los resultados a Excel."""
+        if not self.analysis_thread or not self.analysis_thread.groove_data:
+            self.screen_status.set_text("Ez dago daturik")
+            return
+
+        # Obtener ruta de salida
+        default_name = Path(self.audio_file).stem + "_groove.xlsx" if self.audio_file else "groove.xlsx"
+        output_file, _ = QFileDialog.getSaveFileName(
+            self, "Gorde fitxategia", default_name,
+            "Excel Files (*.xlsx);;All Files (*)"
+        )
+
+        if output_file:
+            try:
+                self.screen_status.set_text("Esportatzen...")
+                self.analysis_thread.export_to_excel(output_file)
+                self.screen_status.set_text("Esportatuta!")
+            except Exception as e:
+                self.screen_status.set_text(f"Errorea: {str(e)[:12]}")
