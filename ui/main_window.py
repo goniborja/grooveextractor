@@ -299,11 +299,14 @@ class MainWindow(QMainWindow):
         meters_layout = QHBoxLayout()
         meters_layout.setSpacing(30)
 
+        # Ruta a la carpeta de frames LED
+        led_folder = str(ONESHOTS_DIR / "LED_meter")
+
         for name, attr in [("KICK", "led_kick"), ("SNARE", "led_snare"), ("HI-HAT", "led_hihat")]:
             led_layout = QVBoxLayout()
             led_layout.setSpacing(3)
             led = AnimatedLED(
-                str(STRIPS_DIR / "LED_meter.png"),
+                led_folder,  # Carpeta con frames individuales
                 62, scale=SCALE_LED_METER
             )
             setattr(self, attr, led)
@@ -541,9 +544,14 @@ class MainWindow(QMainWindow):
     def _on_analyze_knob_changed(self, value: int):
         """Cuando el knob AZTERTU se gira a posición 1, ejecuta análisis."""
         if value == 1:
-            self._on_analyze_clicked()
-            # Volver a posición 0 después de iniciar
-            self.knob_analyze.set_value(0)
+            # Ejecutar análisis
+            if self.audio_file:
+                self._start_analysis()
+                self.analyze_clicked.emit()
+            else:
+                self.screen_status.set_text("Kargatu audioa!")
+                self.screen_log.set_text("Errorea: ez dago audiorik")
+            # No resetear automáticamente - el usuario puede girarlo de vuelta
 
     def _on_analyze_clicked(self):
         if not self.audio_file:
