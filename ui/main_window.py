@@ -39,7 +39,7 @@ SCALE_VU = 0.85               # VU meter muy grande
 SCALE_LED_METER = 0.35        # LED meters
 SCALE_SCREEN_SMALL = 0.23     # Screens pequeños
 SCALE_SCREEN_BIG = 0.65       # Screens grandes (zona D)
-SCALE_SCREEN_LOG = 0.40       # Screen de log de proceso
+SCALE_SCREEN_LOG = 0.65       # Screen de log de proceso (más grande para 4+ líneas)
 SCALE_BUTTON = 0.46
 
 # Margen izquierdo para zonas A, D, G
@@ -292,7 +292,7 @@ class MainWindow(QMainWindow):
             scale=SCALE_SCREEN_SMALL
         )
         self.screen_status.set_text("PREST")
-        self.screen_status.set_text_color("#888888")
+        self.screen_status.set_text_color("#000000")  # Negro para legibilidad
         layout.addWidget(self.screen_status, alignment=Qt.AlignmentFlag.AlignCenter)
 
         # LED Meters
@@ -334,7 +334,7 @@ class MainWindow(QMainWindow):
             scale=SCALE_SCREEN_LOG
         )
         self.screen_log.set_text("Prest analisatzeko")
-        self.screen_log.set_text_color("#66AA66")  # Verde suave
+        self.screen_log.set_text_color("#000000")  # Negro para legibilidad
         layout.addWidget(self.screen_log, alignment=Qt.AlignmentFlag.AlignCenter)
 
         return zone
@@ -434,7 +434,7 @@ class MainWindow(QMainWindow):
             scale=SCALE_SCREEN_BIG
         )
         self.screen_style.set_text(self.STYLES[0])
-        self.screen_style.set_amber_color()
+        self.screen_style.set_text_color("#000000")  # Negro para legibilidad
         screens_layout.addWidget(self.screen_style)
 
         # Screen batería
@@ -512,8 +512,8 @@ class MainWindow(QMainWindow):
         self.pad_export.clicked.connect(self._on_export_clicked)
         self.switch_format.toggled.connect(self._on_format_changed)
         # IREKI/GORDE sin función por ahora
-        self.btn_open.clicked.connect(lambda: self.screen_status.set_text("IREKI: etorkizunean"))
-        self.btn_save.clicked.connect(lambda: self.screen_status.set_text("GORDE: etorkizunean"))
+        self.btn_open.clicked.connect(lambda: self.screen_status.set_text("Funtzio hau etorkizunean"))
+        self.btn_save.clicked.connect(lambda: self.screen_status.set_text("Funtzio hau etorkizunean"))
 
         # Zona D
         self.knob_style.value_changed.connect(self._on_style_changed)

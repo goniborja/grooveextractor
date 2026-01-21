@@ -32,7 +32,7 @@ class VintageScreen(QWidget):
         self._text = ""
         self._editable = editable
         self._scale = scale
-        self._text_color = QColor("#00FF00")  # Verde LCD por defecto
+        self._text_color = QColor("#000000")  # Negro para legibilidad
         # Ajustar tamaño de fuente según escala
         font_size = max(8, int(14 * scale))
         self._font = QFont("Courier New", font_size, QFont.Weight.Bold)
