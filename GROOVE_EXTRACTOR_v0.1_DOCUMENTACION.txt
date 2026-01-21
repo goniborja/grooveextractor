@@ -1,0 +1,330 @@
+================================================================================
+                    GROOVE EXTRACTOR - DOCUMENTACION v0.1
+================================================================================
+Fecha: 2026-01-21
+Tag Git: v0.1
+Rama principal de desarrollo: claude/implement-custom-widgets-EYeYT
+
+================================================================================
+                            1. DESCRIPCION GENERAL
+================================================================================
+
+Groove Extractor es una herramienta DSP para analisis y extraccion de grooves
+de bateria, especialmente optimizada para musica jamaicana (ska, rocksteady,
+reggae, dub).
+
+La herramienta combina:
+- Separacion de stems con IA (Demucs + DrumSep)
+- Deteccion de BPM con correccion automatica para estilos jamaicanos
+- Analisis de patrones ritmicos (kick/snare/hihat)
+- Exportacion de datos a Excel
+
+================================================================================
+                         2. ESTRUCTURA DE RAMAS GIT
+================================================================================
+
+RAMA PRINCIPAL DE UI (donde esta el tag v0.1):
+------------------------------------------------------------------------------
+Nombre: claude/implement-custom-widgets-EYeYT
+Estado: ACTIVA - Contiene la version funcional v0.1
+Contenido:
+  - Interfaz grafica completa con widgets vintage (PyQt6)
+  - Integracion de todas las funcionalidades del motor
+  - Sistema de callbacks para mensajes en tiempo real
+
+RAMA DE MOTOR/LOGICA:
+------------------------------------------------------------------------------
+Nombre: claude/groove-extractor-data-models-MUlmI
+Estado: ACTIVA - Sincronizada con UI
+Contenido:
+  - Modelos de datos (OnsetData, GrooveData, JamaicanStyle, etc.)
+  - JamaicanBPMAnalyzer con deteccion inteligente de estilos
+  - DrumSeparator con modos OLDIE/NEWIE
+  - Funcion detect_bpm_only() para deteccion rapida
+  - TimingConverter, SwingCalculator, ExcelExporter
+
+RAMAS SECUNDARIAS (pueden no estar actualizadas):
+------------------------------------------------------------------------------
+- claude/groove-extractor-tool-AvPbI: Rama inicial de herramienta
+- claude/groove-extractor-data-models-q1GS9: Rama alternativa de modelos
+- claude/review-groove-extractor-0wIiG: Rama de revision
+
+RAMA PRINCIPAL DEL REPOSITORIO:
+------------------------------------------------------------------------------
+- main: Rama estable del repositorio (puede no tener cambios recientes)
+
+================================================================================
+                      3. FUNCIONALIDADES IMPLEMENTADAS
+================================================================================
+
+3.1 INTERFAZ DE USUARIO (UI)
+------------------------------------------------------------------------------
+Archivo: ui/main_window.py
+
+CONTROLES:
++------------------+------------------------------------------+---------------+
+| Control          | Funcion                                  | Estado        |
++------------------+------------------------------------------+---------------+
+| KARGATU          | Importar archivo de audio (WAV/MP3)      | FUNCIONAL     |
+| BPM ANTZEMAN     | Deteccion rapida de BPM (~5 segundos)    | FUNCIONAL     |
+| AZTERTU (knob)   | Analisis completo con separacion stems   | FUNCIONAL     |
+| BANATU (switch)  | Activar/desactivar separacion de stems   | FUNCIONAL     |
+| OLDIE/NEWIE      | Modo hi-hat vintage/moderno              | FUNCIONAL     |
+| METADATUAK       | Guardar metadatos en database.xlsx       | FUNCIONAL     |
+| ESPORTATU        | Exportar bateria separada (WAV)          | FUNCIONAL     |
+| ESTILOA (knob)   | Seleccionar estilo jamaicano             | FUNCIONAL     |
+| IREKI            | Abrir proyecto (NO IMPLEMENTADO)         | PENDIENTE     |
+| GORDE            | Guardar proyecto (NO IMPLEMENTADO)       | PENDIENTE     |
++------------------+------------------------------------------+---------------+
+
+PANTALLAS:
+- Screen BPM: Muestra BPM detectado
+- Screen Estilo: Muestra estilo sugerido
+- Screen Log: Muestra mensajes de progreso en tiempo real
+- Screen Estado: Muestra estado actual (Prest, Analisatzen, Amaituta, etc.)
+
+INDICADORES:
+- VU Meter: Indicador de progreso visual
+- LED Kick/Snare/HiHat: Indicadores de analisis por instrumento
+- Barra de progreso: Porcentaje completado
+
+3.2 MOTOR DE SEPARACION (DrumSeparator)
+------------------------------------------------------------------------------
+Archivo: src/separators/drum_separator.py
+
+MODOS DE SEPARACION:
+
+MODO OLDIE (vintage jamaicano):
+  - Hi-hat filtrado: 3500-8500 Hz
+  - Para: ska, rocksteady, early reggae
+  - Caracteristicas: hi-hat mas calido y redondo
+
+MODO NEWIE (moderno):
+  - Hi-hat filtrado: 4500-10000 Hz
+  - Para: producciones modernas
+  - Caracteristicas: hi-hat mas brillante y definido
+
+PIPELINE DE SEPARACION:
+  1. Demucs (htdemucs_ft.yaml) extrae bateria de la mezcla
+  2. Filtro de frecuencia para hi-hat segun modo OLDIE/NEWIE
+  3. DrumSep (MDX23C-DrumSep-aufr33-jarredou.ckpt) separa kick/snare/toms
+  4. Combinacion de stems: kick + snare de DrumSep, hihat de filtro
+
+METODOS PRINCIPALES:
+  - separate_oldie(y, sr): Separacion modo vintage
+  - separate_newie(y, sr): Separacion modo moderno
+  - separate_by_mode(y, sr, mode): Selector de modo
+  - extract_drums_from_mix(y, sr): Fase 1 con Demucs
+  - separate_drums(y, sr): Fase 2 con DrumSep
+
+3.3 ANALIZADOR DE BPM (JamaicanBPMAnalyzer)
+------------------------------------------------------------------------------
+Archivo: src/analyzers/jamaican_bpm.py
+
+DETECCION INTELIGENTE:
+  - Detecta BPM con librosa
+  - Analiza patron de kick/snare para distinguir estilos
+  - Corrige automaticamente BPM detectado al doble (reggae vs ska)
+
+ESTILOS SOPORTADOS:
++------------------+-------------+------------------------------------------+
+| Estilo           | Rango BPM   | Patron caracteristico                    |
++------------------+-------------+------------------------------------------+
+| SKA              | 110-170     | Bombo 1+3, snare 2+4 (afterbeat)        |
+| ROCKSTEADY       | 70-90       | Transicion ska-reggae                    |
+| EARLY REGGAE     | 75-95       | Inicio del reggae                        |
+| ONE-DROP         | 65-85       | Bombo SOLO en beat 3                     |
+| ROCKERS          | 70-85       | Bombo 1+3, mas lento que ska            |
+| STEPPERS         | 70-85       | Bombo en TODOS los beats (1,2,3,4)      |
+| DUB              | 60-80       | Variante experimental                    |
++------------------+-------------+------------------------------------------+
+
+FUNCIONES:
+  - analyze(y): Analisis basico de BPM
+  - analyze_with_pattern(y, kick_times, snare_times): Analisis con patron
+  - detect_bpm_only(audio_path, style_hint): Deteccion rapida (standalone)
+
+3.4 EXPORTACION DE DATOS
+------------------------------------------------------------------------------
+Archivos generados:
+  - database.xlsx: Metadatos de todas las canciones analizadas
+  - [nombre]_groove.xlsx: Analisis detallado por cancion
+  - separated/[nombre]_kick.wav: Stem de bombo
+  - separated/[nombre]_snare.wav: Stem de caja
+  - separated/[nombre]_hihat.wav: Stem de hi-hat
+  - separated/[nombre]_drums.wav: Bateria combinada
+
+================================================================================
+                      4. FUNCIONALIDADES PENDIENTES
+================================================================================
+
+4.1 IREKI (Abrir proyecto)
+------------------------------------------------------------------------------
+Estado: NO IMPLEMENTADO
+Descripcion: Abrir un proyecto guardado previamente con toda su configuracion
+Archivos afectados: ui/main_window.py
+
+4.2 GORDE (Guardar proyecto)
+------------------------------------------------------------------------------
+Estado: NO IMPLEMENTADO
+Descripcion: Guardar proyecto con configuracion actual y resultados
+Archivos afectados: ui/main_window.py
+
+4.3 Exportacion MIDI
+------------------------------------------------------------------------------
+Estado: PARCIALMENTE IMPLEMENTADO (switch existe, funcion no)
+Descripcion: Exportar groove como archivo MIDI
+Archivos afectados: ui/main_window.py, nuevo archivo src/exporters/midi_exporter.py
+
+4.4 Visualizacion de forma de onda
+------------------------------------------------------------------------------
+Estado: NO IMPLEMENTADO
+Descripcion: Mostrar waveform del audio cargado en la UI
+Archivos afectados: ui/main_window.py, nuevo widget
+
+4.5 Edicion de grid/patron
+------------------------------------------------------------------------------
+Estado: NO IMPLEMENTADO
+Descripcion: Permitir editar el patron detectado manualmente
+Archivos afectados: Nuevo modulo de edicion
+
+================================================================================
+                      5. MODO AUTOMATICO (PROPUESTA FUTURA)
+================================================================================
+
+DESCRIPCION:
+Un modo extra que permite procesar multiples archivos de audio automaticamente,
+ideal para construir una base de datos grande de grooves sin intervencion manual.
+
+FUNCIONAMIENTO PROPUESTO:
+1. El usuario selecciona una CARPETA de origen con archivos WAV/MP3
+2. La herramienta procesa cada archivo secuencialmente:
+   a. Importa el archivo
+   b. Ejecuta analisis completo (BPM, estilo, onsets, swing)
+   c. Guarda SOLO metadatos en database.xlsx (NO guarda stems)
+   d. Pasa al siguiente archivo
+3. Al terminar todos los archivos, muestra resumen
+
+VENTAJAS:
+- Construccion rapida de base de datos de grooves
+- No requiere intervencion manual
+- Ahorra espacio al no guardar stems
+- Ideal para analizar colecciones grandes de musica
+
+IMPLEMENTACION SUGERIDA:
+- Nuevo boton "AUTOMATIKOA" en la UI
+- Dialogo para seleccionar carpeta de origen
+- Checkbox "Solo metadatos (sin stems)"
+- Barra de progreso global (archivo X de Y)
+- Log de archivos procesados/errores
+
+ARCHIVOS A MODIFICAR:
+- ui/main_window.py: Nuevo boton y dialogo
+- src/groove_extractor.py: Metodo batch_extract()
+- Nuevo archivo: src/batch_processor.py
+
+================================================================================
+                         6. ARCHIVOS PRINCIPALES
+================================================================================
+
+ESTRUCTURA DEL PROYECTO:
+groove_extractor/
+|-- extractor_app.py              # Punto de entrada de la aplicacion
+|-- src/
+|   |-- __init__.py               # Exports del modulo
+|   |-- groove_extractor.py       # Orquestador principal
+|   |-- models/                   # Modelos de datos
+|   |   |-- onset_data.py
+|   |   |-- groove_data.py
+|   |   |-- jamaican_styles.py
+|   |   |-- timing_data.py
+|   |   |-- swing_analysis.py
+|   |   |-- hihat_types.py
+|   |-- analyzers/
+|   |   |-- jamaican_bpm.py       # Analizador de BPM
+|   |   |-- swing_calculator.py   # Calculador de swing
+|   |-- detectors/
+|   |   |-- onset_detector.py     # Detector de onsets
+|   |-- classifiers/
+|   |   |-- hihat_classifier.py   # Clasificador hi-hat open/closed
+|   |-- converters/
+|   |   |-- timing_converter.py   # Conversor a MIDI ticks
+|   |-- exporters/
+|   |   |-- excel_exporter.py     # Exportador a Excel
+|   |-- separators/
+|       |-- drum_separator.py     # Separador de stems
+|-- ui/
+|   |-- __init__.py
+|   |-- main_window.py            # Ventana principal
+|   |-- widgets/                  # Widgets custom
+|       |-- image_switch.py
+|       |-- filmstrip_knob.py
+|       |-- animated_vu_meter.py
+|       |-- animated_led.py
+|       |-- vintage_screen.py
+|       |-- image_pad.py
+|       |-- image_button.py
+|-- assets/
+|   |-- ui/
+|       |-- vintage_obsession/    # Kit de imagenes para UI
+|-- _temp_files/                  # Archivos temporales (no commitear)
+|-- test_*.py                     # Scripts de prueba
+
+================================================================================
+                         7. COMO VOLVER A ESTA VERSION
+================================================================================
+
+Si algo falla en el futuro y necesitas volver a esta version funcional:
+
+OPCION 1 - Checkout del tag:
+  git checkout v0.1
+
+OPCION 2 - Crear rama desde el tag:
+  git checkout -b mi-rama-segura v0.1
+
+OPCION 3 - Ver el commit exacto:
+  git log --oneline | grep "Version 0.1"
+  git checkout [hash-del-commit]
+
+NOTA: El tag v0.1 esta en la rama claude/implement-custom-widgets-EYeYT
+
+================================================================================
+                         8. DEPENDENCIAS REQUERIDAS
+================================================================================
+
+Python 3.12+
+PyQt6
+librosa
+soundfile
+numpy
+pandas
+openpyxl
+audio-separator (con modelos Demucs y DrumSep)
+onnxruntime-gpu (o onnxruntime para CPU)
+torch + torchaudio
+
+Instalacion:
+  pip install PyQt6 librosa soundfile numpy pandas openpyxl
+  pip install audio-separator
+  pip install onnxruntime-gpu  # o onnxruntime para CPU
+
+================================================================================
+                         9. EJECUCION
+================================================================================
+
+Para ejecutar la aplicacion:
+  cd "D:\groove extractor"
+  python extractor_app.py
+
+================================================================================
+                         10. NOTAS ADICIONALES
+================================================================================
+
+- El procesamiento con Demucs en CPU tarda ~7 minutos por cancion
+- Con GPU (CUDA) seria mucho mas rapido
+- Los modelos de IA se descargan automaticamente la primera vez
+- La carpeta /tmp/audio-separator-models/ contiene los modelos descargados
+
+================================================================================
+                    FIN DE LA DOCUMENTACION v0.1
+================================================================================
