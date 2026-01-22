@@ -288,6 +288,110 @@ class MidiGenerator:
 
         return self.create_midi_file(blocks, output_path, separate_tracks=True)
 
+    def add_auto_fills(self, blocks: List[dict],
+                       fill_every: int = 4,
+                       fill_pattern: str = "fill-1bar-simple") -> List[dict]:
+        """
+        Inserta fills automaticamente al final de bloques largos.
+
+        Args:
+            blocks: Lista de bloques originales
+            fill_every: Insertar fill cada N compases (default: 4)
+            fill_pattern: Patron de fill a usar
+
+        Returns:
+            Nueva lista de bloques con fills insertados
+        """
+        new_blocks = []
+
+        for block in blocks:
+            pattern = get_pattern(block["pattern_id"])
+            bars = block.get("bars", 1)
+
+            # No agregar fills a bloques que ya son fills/intros/outros
+            if pattern.get("type") in ["fill", "intro", "outro", "break"]:
+                new_blocks.append(block)
+                continue
+
+            # Si el bloque es largo, dividirlo con fills
+            if bars > fill_every:
+                remaining_bars = bars
+                intensity = block.get("intensity", 1.0)
+                ghost_notes = block.get("ghost_notes", True)
+
+                while remaining_bars > 0:
+                    if remaining_bars > fill_every:
+                        # Agregar seccion + fill
+                        new_blocks.append({
+                            "pattern_id": block["pattern_id"],
+                            "bars": fill_every - 1,
+                            "intensity": intensity,
+                            "ghost_notes": ghost_notes
+                        })
+                        new_blocks.append({
+                            "pattern_id": fill_pattern,
+                            "bars": 1,
+                            "intensity": min(1.0, intensity + 0.1)
+                        })
+                        remaining_bars -= fill_every
+                    else:
+                        # Ultimo segmento sin fill
+                        new_blocks.append({
+                            "pattern_id": block["pattern_id"],
+                            "bars": remaining_bars,
+                            "intensity": intensity,
+                            "ghost_notes": ghost_notes
+                        })
+                        remaining_bars = 0
+            else:
+                new_blocks.append(block)
+
+        return new_blocks
+
+    def generate_with_auto_fills(self, pattern_id: str, total_bars: int,
+                                 output_path: str,
+                                 intensity: float = 0.8,
+                                 fill_every: int = 4,
+                                 include_intro: bool = True,
+                                 include_outro: bool = True) -> str:
+        """
+        Genera MIDI con fills automaticos insertados.
+
+        Args:
+            pattern_id: Patron base a usar
+            total_bars: Total de compases (sin contar intro/outro)
+            output_path: Ruta de salida
+            intensity: Intensidad base
+            fill_every: Insertar fill cada N compases
+            include_intro: Incluir intro
+            include_outro: Incluir outro
+
+        Returns:
+            Ruta del archivo generado
+        """
+        blocks = []
+
+        # Intro
+        if include_intro:
+            blocks.append({"pattern_id": "intro-count-2bar", "bars": 2, "intensity": 0.5})
+
+        # Bloque principal
+        blocks.append({
+            "pattern_id": pattern_id,
+            "bars": total_bars,
+            "intensity": intensity,
+            "ghost_notes": True
+        })
+
+        # Aplicar auto-fills
+        blocks = self.add_auto_fills(blocks, fill_every=fill_every)
+
+        # Outro
+        if include_outro:
+            blocks.append({"pattern_id": "outro-hit", "bars": 1, "intensity": 1.0})
+
+        return self.create_midi_file(blocks, output_path, separate_tracks=True)
+
     def generate_song_structure(self, output_path: str = "song.mid",
                                 intro_bars: int = 2,
                                 verse_bars: int = 8,

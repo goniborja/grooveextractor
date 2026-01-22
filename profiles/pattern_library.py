@@ -429,6 +429,163 @@ PATTERN_LIBRARY: Dict[str, dict] = {
             ("kick", 1, 0, True),
         ]
     },
+
+    # ==========================================================================
+    # TRANSICIONES Y VARIACIONES
+    # ==========================================================================
+
+    "transition-build-2bar": {
+        "name": "Transicion Build 2 Compases",
+        "style": "generic",
+        "type": "fill",
+        "length_bars": 2,
+        "description": "Transicion con crescendo para cambio de seccion",
+        "compatible_drummers": ["carlton-barrett", "sly-dunbar", "lloyd-knibb", "santa-davis", "horsemouth-wallace"],
+        "events": [
+            # Compas 1 - mantiene groove suave
+            ("hihat", 1, 0.5, False),
+            ("hihat", 2, 0.5, False),
+            ("kick", 3, 0, True),
+            ("snare", 3, 0, False),
+            ("hihat", 3, 0.5, False),
+            ("hihat", 4, 0.5, False),
+            # Compas 2 - build hacia el siguiente
+            ("kick", 5, 0, True),
+            ("snare", 5, 0.5, False),
+            ("snare", 6, 0, True),
+            ("snare", 6, 0.5, True),
+            ("snare", 7, 0, True),
+            ("snare", 7, 0.5, True),
+            ("kick", 8, 0, True),
+            ("snare", 8, 0, True),
+            ("hihat_open", 8, 0, True),
+        ]
+    },
+
+    "one-drop-double": {
+        "name": "One-Drop Doble",
+        "style": "one-drop",
+        "type": "rhythm",
+        "length_bars": 2,
+        "description": "One-drop con variacion en segundo compas",
+        "compatible_drummers": ["carlton-barrett", "santa-davis"],
+        "events": [
+            # Compas 1 - basico
+            ("hihat", 1, 0.5, False),
+            ("hihat", 2, 0.5, True),
+            ("kick", 3, 0, True),
+            ("snare", 3, 0, True),
+            ("hihat", 3, 0.5, False),
+            ("hihat", 4, 0.5, True),
+            # Compas 2 - con variacion
+            ("hihat", 5, 0.5, False),
+            ("snare", 6, 0, False),  # Ghost
+            ("hihat", 6, 0.5, True),
+            ("kick", 7, 0, True),
+            ("snare", 7, 0, True),
+            ("hihat", 7, 0.5, False),
+            ("hihat_open", 8, 0.5, True),  # Abre en 4
+        ]
+    },
+
+    "steppers-double": {
+        "name": "Steppers Doble",
+        "style": "steppers",
+        "type": "rhythm",
+        "length_bars": 2,
+        "description": "Steppers con variacion en segundo compas",
+        "compatible_drummers": ["sly-dunbar"],
+        "events": [
+            # Compas 1
+            ("kick", 1, 0, True),
+            ("hihat", 1, 0, False),
+            ("hihat", 1, 0.5, False),
+            ("kick", 2, 0, True),
+            ("hihat", 2, 0, False),
+            ("hihat", 2, 0.5, False),
+            ("kick", 3, 0, True),
+            ("snare", 3, 0, True),
+            ("hihat", 3, 0, False),
+            ("hihat", 3, 0.5, False),
+            ("kick", 4, 0, True),
+            ("hihat", 4, 0, False),
+            ("hihat", 4, 0.5, False),
+            # Compas 2 - variacion
+            ("kick", 5, 0, True),
+            ("hihat", 5, 0, False),
+            ("hihat", 5, 0.5, False),
+            ("kick", 6, 0, True),
+            ("snare", 6, 0.5, False),  # Ghost syncopado
+            ("hihat", 6, 0, False),
+            ("hihat", 6, 0.5, False),
+            ("kick", 7, 0, True),
+            ("snare", 7, 0, True),
+            ("hihat", 7, 0, False),
+            ("hihat", 7, 0.5, False),
+            ("kick", 8, 0, True),
+            ("hihat_open", 8, 0, False),
+            ("hihat", 8, 0.5, False),
+        ]
+    },
+
+    "fill-crash": {
+        "name": "Fill con Crash",
+        "style": "generic",
+        "type": "fill",
+        "length_bars": 1,
+        "description": "Fill que termina con crash",
+        "compatible_drummers": ["carlton-barrett", "sly-dunbar", "lloyd-knibb", "santa-davis", "horsemouth-wallace"],
+        "events": [
+            ("snare", 1, 0, True),
+            ("snare", 2, 0, True),
+            ("snare", 2, 0.5, False),
+            ("snare", 3, 0, True),
+            ("snare", 3, 0.5, True),
+            ("kick", 4, 0, True),
+            ("snare", 4, 0, True),
+            ("crash", 4, 0, True),
+        ]
+    },
+
+    "dub-space": {
+        "name": "Dub Espaciado",
+        "style": "one-drop",
+        "type": "rhythm",
+        "length_bars": 2,
+        "description": "Patron espaciado estilo dub con mucho aire",
+        "compatible_drummers": ["carlton-barrett", "santa-davis", "sly-dunbar"],
+        "events": [
+            # Compas 1 - muy espaciado
+            ("hihat", 2, 0.5, True),
+            ("kick", 3, 0, True),
+            ("snare", 3, 0, True),
+            ("hihat", 4, 0.5, False),
+            # Compas 2 - un poco mas
+            ("hihat", 6, 0.5, True),
+            ("kick", 7, 0, True),
+            ("rimshot", 7, 0, True),  # Rimshot en vez de snare full
+            ("hihat_open", 8, 0.5, True),
+        ]
+    },
+
+    "nyabinghi": {
+        "name": "Nyabinghi",
+        "style": "roots",
+        "type": "rhythm",
+        "length_bars": 1,
+        "description": "Patron rastafari tradicional",
+        "compatible_drummers": ["carlton-barrett", "santa-davis"],
+        "events": [
+            ("kick", 1, 0, True),
+            ("hihat", 1, 0.5, False),
+            ("kick", 2, 0.5, False),
+            ("hihat", 2, 0.5, True),
+            ("kick", 3, 0, True),
+            ("snare", 3, 0, True),
+            ("hihat", 3, 0.5, False),
+            ("hihat", 4, 0.5, True),
+        ]
+    },
 }
 
 

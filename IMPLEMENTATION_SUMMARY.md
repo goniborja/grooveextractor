@@ -14,7 +14,7 @@
   - Santa Davis (roots, 70s-80s, Soul Syndicate)
   - Horsemouth Wallace (rockers, 70s-80s, The Aggrovators)
 
-- **pattern_library.py** - 20 patrones de bateria:
+- **pattern_library.py** - 26 patrones de bateria:
   - One-drop: basico, ghost, hihat abierto
   - Steppers: basico, pesado
   - Rockers: basico, sincopado
@@ -188,7 +188,8 @@ grooveextractor/
 
 - [ ] `wav_generator.py` - Renderizado a audio WAV
 - [x] Importador de Groove Extractor - Generar perfiles desde analisis
-- [ ] Fills automaticos al final de bloques largos
+- [x] Fills automaticos al final de bloques largos (add_auto_fills)
+- [x] CLI interactivo (book_of_drums.py)
 - [ ] Preview de patrones con audio
 - [ ] Integracion completa con UI de Groove Extractor
 - [ ] Tests unitarios completos
