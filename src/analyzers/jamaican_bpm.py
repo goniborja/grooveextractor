@@ -84,7 +84,8 @@ class JamaicanBPMAnalyzer:
 
     def analyze_with_pattern(self, y: np.ndarray,
                              kick_times: List[float],
-                             snare_times: List[float]) -> BPMAnalysisResult:
+                             snare_times: List[float],
+                             style_hint: Optional[JamaicanStyle] = None) -> BPMAnalysisResult:
         """
         Analiza BPM usando informacion de patron de bombo/caja.
 
@@ -95,12 +96,21 @@ class JamaicanBPMAnalyzer:
             y: Audio array
             kick_times: Tiempos de bombo en segundos
             snare_times: Tiempos de caja en segundos
+            style_hint: Estilo sugerido por el usuario (prioridad sobre deteccion)
 
         Returns:
             BPMAnalysisResult con BPM refinado por patron
         """
+        # Debug: mostrar style_hint recibido
+        print(f"[STYLE DEBUG] Estilo seleccionado: {style_hint}")
+
         # Analisis basico primero
         result = self.analyze(y)
+
+        # Si el usuario especifico un estilo, usarlo para corregir BPM
+        if style_hint is not None and style_hint != JamaicanStyle.UNKNOWN:
+            corrected_result = self._apply_style_hint_correction(result, style_hint)
+            return corrected_result
 
         # Si BPM > 130, analizar patron para decidir si es ska real o reggae al doble
         if result.bpm_detected > 130 and len(kick_times) > 0 and len(snare_times) > 0:
@@ -115,6 +125,62 @@ class JamaicanBPMAnalyzer:
             return refined_result
 
         return result
+
+    def _apply_style_hint_correction(self, result: BPMAnalysisResult,
+                                     style_hint: JamaicanStyle) -> BPMAnalysisResult:
+        """
+        Aplica correccion de BPM basada en style_hint del usuario.
+
+        LOGICA:
+        - SKA: BPM alto es correcto (120-180), no dividir
+        - ONE_DROP/ROCKERS/STEPPERS/DUB: Si BPM > 130, dividir por 2
+        - ROCKSTEADY: Rango 90-110, dividir si > 130
+
+        Args:
+            result: Resultado del analisis basico
+            style_hint: Estilo seleccionado por el usuario
+
+        Returns:
+            BPMAnalysisResult corregido
+        """
+        bpm_detected = result.bpm_detected
+        bpm_corrected = bpm_detected
+        correction_type = "none"
+
+        # Estilos que NUNCA deben tener BPM > 130
+        slow_styles = {
+            JamaicanStyle.ONE_DROP,
+            JamaicanStyle.ROCKERS,
+            JamaicanStyle.STEPPERS,
+            JamaicanStyle.DUB,
+            JamaicanStyle.ROCKSTEADY,
+        }
+
+        if style_hint in slow_styles and bpm_detected > 130:
+            # Reggae detectado al doble: DIVIDIR
+            bpm_corrected = bpm_detected / 2
+            correction_type = "halved"
+            print(f"[STYLE DEBUG] BPM corregido: {bpm_detected} -> {bpm_corrected} (estilo {style_hint.value})")
+
+        elif style_hint == JamaicanStyle.SKA:
+            # SKA: mantener BPM alto
+            bpm_corrected = bpm_detected
+            correction_type = "none"
+            print(f"[STYLE DEBUG] SKA: manteniendo BPM {bpm_detected}")
+
+        # Recalcular alternativas con BPM corregido
+        alternatives = self._get_style_alternatives(bpm_corrected)
+
+        return BPMAnalysisResult(
+            bpm_detected=bpm_detected,
+            bpm_corrected=bpm_corrected,
+            style_suggested=style_hint,
+            correction_type=correction_type,
+            confidence=0.9,  # Alta confianza porque el usuario especifico el estilo
+            is_vintage=result.is_vintage,
+            tempo_drift=result.tempo_drift,
+            alternatives=alternatives
+        )
 
     def detect_style_from_pattern(self, kick_times: List[float],
                                   snare_times: List[float],
