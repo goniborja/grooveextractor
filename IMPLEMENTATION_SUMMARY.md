@@ -40,6 +40,16 @@
   - Metodo `generate_quick_test()` para pruebas rapidas
   - Metodo `generate_song_structure()` para estructuras completas
 
+### Importadores (profiles/importers/)
+
+- **from_groove_extractor.py** - Importador de datos de Groove Extractor:
+  - Lee database.xlsx generado por Groove Extractor
+  - Agrupa canciones por baterista (desde path o metadatos)
+  - Calcula estadisticas de timing, swing y velocidad
+  - Genera perfiles automaticos basados en analisis real
+  - Exporta a JSON o Python
+  - Combina con perfiles existentes
+
 ---
 
 ## Funciones de Acceso Disponibles
@@ -102,6 +112,22 @@ gen.generate_song_structure("full_song.mid",
                             chorus_bars=8)
 ```
 
+### Groove Extractor Importer
+```python
+from profiles.importers import GrooveExtractorImporter
+
+# Importar perfiles desde analisis de Groove Extractor
+importer = GrooveExtractorImporter("database.xlsx")
+profiles = importer.import_all_profiles()
+
+# Exportar a JSON
+importer.export_to_json(profiles, "imported_profiles.json")
+
+# Combinar con perfiles existentes
+from profiles import DRUMMER_PROFILES
+merged = importer.merge_with_existing(profiles, DRUMMER_PROFILES)
+```
+
 ---
 
 ## Arquitectura
@@ -112,8 +138,9 @@ grooveextractor/
 │   ├── __init__.py
 │   ├── drummer_profiles.py      # 5 bateristas con parametros completos
 │   ├── pattern_library.py       # 20 patrones de bateria
-│   └── importers/               # Importadores (futuro)
-│       └── __init__.py
+│   └── importers/               # Importadores de datos externos
+│       ├── __init__.py
+│       └── from_groove_extractor.py  # Importa desde database.xlsx
 │
 ├── generators/                  # Generadores
 │   ├── __init__.py
@@ -160,7 +187,7 @@ grooveextractor/
 ## Pendiente
 
 - [ ] `wav_generator.py` - Renderizado a audio WAV
-- [ ] Importador de Groove Extractor - Generar perfiles desde analisis
+- [x] Importador de Groove Extractor - Generar perfiles desde analisis
 - [ ] Fills automaticos al final de bloques largos
 - [ ] Preview de patrones con audio
 - [ ] Integracion completa con UI de Groove Extractor
