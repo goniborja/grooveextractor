@@ -24,5 +24,11 @@ matplotlib==3.8.2
 # Image Processing (for APNG support)
 Pillow==10.2.0
 
+# MIDI Generation (Book of Drums)
+mido>=1.3.0
+
+# Excel Import (Groove Extractor Importer)
+openpyxl>=3.1.0
+
 # Additional utilities
 python-dateutil==2.8.2
